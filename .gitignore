@@ -1,0 +1,47 @@
+
+# Created by https://www.gitignore.io/api/soliditytruffle
+# Edit at https://www.gitignore.io/?templates=soliditytruffle
+
+### SolidityTruffle ###
+# depedencies
+node_modules
+
+# testing
+coverage
+
+# production
+build
+build_webpack
+
+# misc
+.DS_Store
+.env
+npm-debug.log
+.truffle-solidity-loader
+.vagrant/**
+blockchain/geth/**
+blockchain/keystore/**
+blockchain/history
+
+#truffle
+.tern-port
+yarn.lock
+package-lock.json
+
+#client
+client/.DS_Store
+client/node_modules
+client/public/build
+
+#firebase
+client/src/utils/firebaseConfig.js
+client/.firebaserc
+client/firebase.json
+client/firebase.indexes.json
+client/firestore.rules
+client/storage.rules
+
+#miscellaneous
+.vscode
+
+# End of https://www.gitignore.io/api/soliditytruffle
