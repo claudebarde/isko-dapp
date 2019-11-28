@@ -4,7 +4,6 @@
   import Modal from "../Modal.svelte";
   import Button from "../Button.svelte";
 
-  //let web3 = window.web3;
   const dispatch = createEventDispatcher();
   let translator = true; // true if translator, false if client
   const activeClasses = "border-l border-t border-r rounded-t text-blue-700";
@@ -28,26 +27,68 @@
   };
 
   const validateForm = async () => {
-    console.log({
+    const { web3, contractInstance } = $web3Store;
+    const data = {
       ...info,
       address: $web3Store.currentAddress,
       accountType: translator ? "translator" : "client"
-    });
-    /*const signature = await web3.personal.sign(
-      web3.fromUtf8("New account registration"),
-      $web3Store.currentAddress,
-      (err, signature) => {
-        console.log(signature);
-        console.log(
-          signature,
-          web3.personal.ecRecover(
-            "New account registration",
-            signature,
-            console.log
-          )
-        );
-      }
-    );*/
+    };
+    console.log(data);
+    // prepares transaction parameters
+    let tx_builder = contractInstance.methods.addNewTranslator();
+    let encoded_tx = tx_builder.encodeABI();
+    let txObject = {
+      data: encoded_tx,
+      from: $web3Store.currentAddress,
+      to: $web3Store.contractAddress
+    };
+    // sends transaction to contract
+    try {
+      console.log(txObject);
+    } catch (error) {
+      console.log(error);
+    }
+    // sends transaction to contract
+    /*try {
+      const signedTransaction = await window.web3.eth.signTransaction(
+        {
+          from: $web3Store.currentAddress,
+          to: $web3Store.contractAddress,
+          data: contract.methods.addNewTranslator().encodeABI()
+        },
+        $web3Store.currentAddress
+      );*/
+    /*let tx_builder = contract.methods.addNewTranslator();
+      let encoded_tx = tx_builder.encodeABI();
+      let txObject = {
+        data: encoded_tx,
+        from: $web3Store.currentAddress,
+        to: $web3Store.contractAddress
+      };
+      //let signedTx = await window.web3.eth.signTransaction(txObject);
+      window.web3.eth.signTransaction(txObject, (error, result) => {
+        console.log("Error:", error, "Result:", result);
+      });
+      //console.log(signedTx);
+      //console.log(signedTransaction);
+    } catch (error) {
+      console.log(error);
+    }*/
+    /*contract.methods
+      .addNewTranslator()
+      .send({ from: $web3Store.currentAddress })
+      .on("transactionHash", hash => {
+        console.log("txhash:", hash);
+      })
+      .on("receipt", receipt => {
+        console.log("receipt", receipt);
+      })
+      .on("confirmation", (confirmationNumber, receipt) => {
+        console.log("confirmation:", confirmationNumber, receipt);
+      })
+      .on("error", (error, receipt) => {
+        console.log("error:", error, receipt);
+      });*/
   };
 
   const checkInfo = info => {

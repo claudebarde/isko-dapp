@@ -4,7 +4,10 @@ const store = () => {
   const { subscribe, set, update } = writable({
     hasMetamask: undefined,
     isMetamaskConnected: false,
-    currentAddress: undefined
+    currentAddress: undefined,
+    web3: undefined,
+    contractAddress: "0xB5039dc95F3800beb0dd58963b29E407ff9e2b09",
+    contractInstance: undefined
   });
 
   return {
@@ -21,6 +24,16 @@ const store = () => {
       update(currentStore => ({
         ...currentStore,
         currentAddress: newAddress
+      })),
+    setWeb3: instance =>
+      update(currentStore => ({
+        ...currentStore,
+        web3: instance
+      })),
+    setContractInstance: instance =>
+      update(currentStore => ({
+        ...currentStore,
+        contractInstance: instance
       }))
   };
 };

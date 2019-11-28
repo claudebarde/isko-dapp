@@ -8,6 +8,9 @@
   import Toast from "./Components/Toast.svelte";
   import { onMount } from "svelte";
   import web3Store from "./stores/web3-store";
+  import userStore from "./stores/user-store";
+  import contractInterface from "../../build/contracts/IskoEth.json";
+  import toastTypes from "./utils/toastTypes.js";
 
   let isLoginModalOpen = false;
   let isSignupModalOpen = false;
@@ -20,84 +23,98 @@
     toastOpen = true;
     setTimeout(() => (toastOpen = false), 3000);
   };
-  const toastTypes = {
-    metamaskLoading: {
-      title: "Loading...",
-      text: "Checking your connection to MetaMask",
-      type: "info",
-      icon: "clock"
-    },
-    metamaskConnected: {
-      title: "Connected to MetaMask",
-      text: `You are now connected to MetaMask`,
-      type: "success",
-      icon: "thumbs-up"
-    },
-    metamaskDisconnected: {
-      title: "Disconnected from MetaMask",
-      text: `You have been disconnected from MetaMask, \nplease reconnect`,
-      type: "warning",
-      icon: "alert-triangle"
-    }
-  };
   let toastType = "metamaskLoading";
 
   onMount(async () => {
     toggleToast(true);
-    let web3 = new Web3(
-      new Web3.providers.HttpProvider("http://localhost:7545")
-    );
-    console.log(await web3.eth.getAccounts());
-    // detects MetaMask
-    if (window.ethereum) {
-      // MetaMask injected web3
-      let metaMaskWeb3 = new Web3(ethereum);
-      try {
-        // Request account access if needed
-        await ethereum.enable();
-        // finds user account
-        metaMaskWeb3.eth.getAccounts((err, accounts) => {
-          if (err) throw err;
 
-          web3Store.hasMetamask(true);
-          if (accounts.length === 0) {
+    // detects ethereum provider injected by MetaMask
+    if (window.ethereum) {
+      // saves web3 instance in the store
+      const web3 = new Web3(ethereum);
+      web3Store.setWeb3(web3);
+      // instantiates contract interface
+      const contract = new web3.eth.Contract(
+        contractInterface.abi,
+        $web3Store.contractAddress
+      );
+      web3Store.setContractInstance(contract);
+      // if MetaMask is installed
+      if (ethereum.isMetaMask) {
+        if (
+          parseInt(ethereum.networkVersion) === 1 ||
+          process.env.NODE_ENV === "development"
+        ) {
+          try {
+            const accounts = await ethereum.enable();
+            web3Store.hasMetamask(true);
+            // finds user's address
+            if (accounts.length === 0) {
+              web3Store.isMetamaskConnected(false);
+            } else {
+              // if connected
+              web3Store.isMetamaskConnected(true);
+              web3Store.setCurrentAddress(accounts[0]);
+              toastType = "metamaskConnected";
+              toggleToast(false);
+              // listens to account change events with MetaMask
+              ethereum.on("accountsChanged", accounts => {
+                if (accounts.length === 0) {
+                  web3Store.isMetamaskConnected(false);
+                  web3Store.setCurrentAddress(undefined);
+                  toastType = "metamaskDisconnected";
+                  toggleToast(true);
+                } else {
+                  // if connected
+                  web3Store.isMetamaskConnected(true);
+                  web3Store.setCurrentAddress(accounts[0]);
+                  toastType = "metamaskConnected";
+                  toggleToast(true);
+                }
+              });
+              // listens to network change events with MetaMask
+              ethereum.on("networkChanged", networkID => {
+                if (networkID === 1) {
+                  // if connected
+                  web3Store.isMetamaskConnected(true);
+                  web3Store.setCurrentAddress(accounts[0]);
+                  toastType = "metamaskConnected";
+                  toggleToast(true);
+                } else {
+                  web3Store.isMetamaskConnected(false);
+                  web3Store.setCurrentAddress(undefined);
+                  toastType = "metamaskMainNetwork";
+                  toggleToast(true);
+                }
+              });
+            }
+          } catch (error) {
+            console.log(error);
             web3Store.isMetamaskConnected(false);
-          } else {
-            // if connected
-            web3Store.isMetamaskConnected(true);
-            web3Store.setCurrentAddress(accounts[0]);
-            toastType = "metamaskConnected";
-            toggleToast(false);
-            // listens to change events with MetaMask
-            metaMaskWeb3.currentProvider.publicConfigStore.on("update", obj => {
-              //console.log(obj);
-              if (obj.selectedAddress === null) {
-                // user logged out
-                web3Store.isMetamaskConnected(false);
-                web3Store.setCurrentAddress(undefined);
-                // we close eventually open modals
-                isLoginModalOpen = false;
-                isSignupModalOpen = false;
-                // we display the toast
-                toastType = "metamaskDisconnected";
-                toggleToast(true);
-              } else if (
-                obj.selectedAddress &&
-                !$web3Store.isMetamaskConnected
-              ) {
-                // user logged in
-                web3Store.isMetamaskConnected(true);
-                web3Store.setCurrentAddress(obj.selectedAddress);
-                // in case warning modal was open
-                isWarningModalOpen = false;
-                // we display the toast
-                toastType = "metamaskConnected";
-                toggleToast(true);
-              }
-            });
           }
-        });
-      } catch (error) {}
+          try {
+            // returns translator balance if any
+            const userBalance = await contract.methods
+              .returnTranslator($web3Store.currentAddress)
+              .call();
+            userStore.updateBalance(userBalance);
+          } catch (error) {
+            console.log(error);
+          }
+          // just checking web3 is connected to the contract
+          console.log(
+            "Fee per word:",
+            await contract.methods.fee().call(),
+            "wei"
+          );
+        } else {
+          web3Store.isMetamaskConnected(false);
+          toastType = "metamaskMainNetwork";
+          toggleToast(true);
+        }
+      } else {
+        web3Store.hasMetamask(false);
+      }
     } else {
       web3Store.hasMetamask(false);
       console.log(
@@ -189,7 +206,7 @@
     warningType = event.detail;
   }} />
 <main>
-  {#if $web3Store.hasMetamas === false}
+  {#if $web3Store.hasMetamask === false}
     <Alert
       type="warning"
       text="Please install Metamask to continue"

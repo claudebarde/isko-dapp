@@ -1,9 +1,13 @@
 <script>
   import web3Store from "../stores/web3-store";
+  import userStore from "../stores/user-store";
   import { createEventDispatcher, onMount } from "svelte";
   import firebase from "../utils/firebaseConfig";
+  import Tooltip from "../Components/Tooltip.svelte";
 
   const dispatch = createEventDispatcher();
+  let isUserConnected = false;
+  let isUserTooltipOpen = false;
 
   const openLoginModal = () => {
     dispatch("openLogin", true);
@@ -20,7 +24,11 @@
   onMount(() => {
     // FIREBASE AUTH
     firebase.auth().onAuthStateChanged(function(user) {
-      console.log(user);
+      if (user !== null) {
+        isUserConnected = true;
+      } else {
+        isUserConnected = false;
+      }
     });
   });
 </script>
@@ -71,7 +79,12 @@
   }
 
   .menu-item-address {
+    position: relative;
+    display: inline-block;
     padding: 0px 8px;
+  }
+
+  .menu-item-address__text {
     color: #edf2f7;
     font-style: italic;
     text-transform: uppercase;
@@ -108,20 +121,33 @@
     <div class="menu-item">
       <span>Market</span>
     </div>
-    <div
-      class="menu-item"
-      on:click={$web3Store.isMetamaskConnected ? openSignupModal : openWarningModal}>
-      <span>Sign Up</span>
-    </div>
-    <div
-      class="menu-item"
-      on:click={$web3Store.isMetamaskConnected ? openLoginModal : openWarningModal}>
-      <span>Log In</span>
-    </div>
+    {#if isUserConnected}
+      <div class="menu-item" on:click={() => console.log('log out')}>
+        <span>Log Out</span>
+      </div>
+    {:else}
+      <div
+        class="menu-item"
+        on:click={$web3Store.isMetamaskConnected ? openSignupModal : openWarningModal}>
+        <span>Sign Up</span>
+      </div>
+      <div
+        class="menu-item"
+        on:click={$web3Store.isMetamaskConnected ? openLoginModal : openWarningModal}>
+        <span>Log In</span>
+      </div>
+    {/if}
     <div class="menu-item-address">
-      <span>
+      <span
+        class="menu-item-address__text"
+        on:mouseenter={() => (isUserTooltipOpen = true)}
+        on:mouseleave={() => (isUserTooltipOpen = false)}>
         {$web3Store.currentAddress === undefined ? '🚫' : $web3Store.currentAddress.slice(0, 4) + '...' + $web3Store.currentAddress.slice(-4)}
       </span>
+      {#if isUserTooltipOpen}
+        <Tooltip
+          content={['Current balance:', `${$web3Store.web3.utils.fromWei($userStore.balance, 'ether')} ether`]} />
+      {/if}
     </div>
   </div>
   <div class="burger">

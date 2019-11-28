@@ -37,9 +37,10 @@ client/public/build
 client/src/utils/firebaseConfig.js
 client/.firebaserc
 client/firebase.json
-client/firebase.indexes.json
+client/firestore.indexes.json
 client/firestore.rules
 client/storage.rules
+client/functions
 
 #miscellaneous
 .vscode

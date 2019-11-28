@@ -19,11 +19,18 @@ contract IskoEth {
     
     constructor () public {
         owner = msg.sender;
+        fee = 66000000000000;
     }
     
     // adds a new translator
-    function addNewTranslator (address payable _translator) public {
-        translators[_translator] = 0;
+    function addNewTranslator () public {
+        require(translators[msg.sender] == 0, "This translator already exists!");
+        translators[msg.sender] = 0;
+    }
+    
+    // returns translator balance
+    function returnTranslator (address _translator) view public returns (uint) {
+        return translators[_translator];
     }
     
     // adds new job from customer
@@ -74,6 +81,11 @@ contract IskoEth {
     // withdraw contract balance
     function withdrawBalance () public onlyOwner {
         owner.transfer(address(this).balance);
+    }
+    
+    // modify fee
+    function changeFee (uint _fee) public onlyOwner {
+        fee = _fee;
     }
     
     // in case of direct payments
