@@ -48,7 +48,6 @@
   .modal {
     position: relative;
     max-height: 70%;
-    overflow: auto;
     border-radius: 0.5rem;
     background-color: white;
     padding: 0;
@@ -90,6 +89,11 @@
   .title-warning {
     background-color: #ed8936;
   }
+
+  .body {
+    padding: 0.75rem;
+    overflow: auto;
+  }
 </style>
 
 <!-- The less opaque grey background -->
@@ -107,7 +111,7 @@
     <p class={`title ${titleBg}`}>
       <slot name="title" />
     </p>
-    <div style="padding:0.75rem">
+    <div class="body">
       <slot name="body" />
     </div>
   </div>

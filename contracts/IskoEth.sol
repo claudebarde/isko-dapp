@@ -23,9 +23,10 @@ contract IskoEth {
     }
     
     // adds a new translator
-    function addNewTranslator () public {
+    function addNewTranslator () payable public {
         require(translators[msg.sender] == 0, "This translator already exists!");
-        translators[msg.sender] = 0;
+        require(msg.value > 0, "There is no ether sent with this transaction.");
+        translators[msg.sender] = msg.value;
     }
     
     // returns translator balance

@@ -1,5 +1,6 @@
 <script>
   import Web3 from "web3";
+  import firebase from "firebase";
   import Navbar from "./Navbar/Navbar.svelte";
   import Alert from "./Components/Alert.svelte";
   import LoginModal from "./Components/Modals/LoginModal.svelte";
@@ -9,29 +10,26 @@
   import { onMount } from "svelte";
   import web3Store from "./stores/web3-store";
   import userStore from "./stores/user-store";
+  import eventsStore from "./stores/events-store";
   import contractInterface from "../../build/contracts/IskoEth.json";
-  import toastTypes from "./utils/toastTypes.js";
 
   let isLoginModalOpen = false;
   let isSignupModalOpen = false;
-  let isWarningModalOpen = false;
   let warningType = undefined;
-  let toastOpen = false;
-  const toggleToast = state => {
-    if (state === false) toastOpen = false;
-
-    toastOpen = true;
-    setTimeout(() => (toastOpen = false), 3000);
-  };
-  let toastType = "metamaskLoading";
+  const { toastTypes } = $eventsStore;
 
   onMount(async () => {
+    const { toggleToast, setToastType } = eventsStore;
+
     toggleToast(true);
 
     // detects ethereum provider injected by MetaMask
     if (window.ethereum) {
       // saves web3 instance in the store
-      const web3 = new Web3(ethereum);
+      // TODO: REPLACE LOCALHOST WITH INFURA NODE FOR PRODUCTION
+      const web3 = new Web3(
+        new Web3.providers.WebsocketProvider("ws://localhost:7545")
+      );
       web3Store.setWeb3(web3);
       // instantiates contract interface
       const contract = new web3.eth.Contract(
@@ -55,20 +53,27 @@
               // if connected
               web3Store.isMetamaskConnected(true);
               web3Store.setCurrentAddress(accounts[0]);
-              toastType = "metamaskConnected";
-              toggleToast(false);
+              setToastType("metamaskConnected");
+              toggleToast(true);
               // listens to account change events with MetaMask
-              ethereum.on("accountsChanged", accounts => {
+              ethereum.on("accountsChanged", async accounts => {
+                // sign out user from firebase
+                await firebase.auth().signOut();
                 if (accounts.length === 0) {
                   web3Store.isMetamaskConnected(false);
                   web3Store.setCurrentAddress(undefined);
-                  toastType = "metamaskDisconnected";
+                  setToastType("metamaskDisconnected");
                   toggleToast(true);
                 } else {
                   // if connected
                   web3Store.isMetamaskConnected(true);
                   web3Store.setCurrentAddress(accounts[0]);
-                  toastType = "metamaskConnected";
+                  // updates user's balance (will close signup modal)
+                  const userBalance = await $web3Store.contractInstance.methods
+                    .returnTranslator($web3Store.currentAddress)
+                    .call();
+                  userStore.updateBalance(userBalance);
+                  setToastType("metamaskConnected");
                   toggleToast(true);
                 }
               });
@@ -78,12 +83,12 @@
                   // if connected
                   web3Store.isMetamaskConnected(true);
                   web3Store.setCurrentAddress(accounts[0]);
-                  toastType = "metamaskConnected";
+                  setToastType("metamaskConnected");
                   toggleToast(true);
                 } else {
                   web3Store.isMetamaskConnected(false);
                   web3Store.setCurrentAddress(undefined);
-                  toastType = "metamaskMainNetwork";
+                  setToastType("metamaskMainNetwork");
                   toggleToast(true);
                 }
               });
@@ -92,6 +97,7 @@
             console.log(error);
             web3Store.isMetamaskConnected(false);
           }
+          // checks if user is already registered in smart contract
           try {
             // returns translator balance if any
             const userBalance = await contract.methods
@@ -101,15 +107,9 @@
           } catch (error) {
             console.log(error);
           }
-          // just checking web3 is connected to the contract
-          console.log(
-            "Fee per word:",
-            await contract.methods.fee().call(),
-            "wei"
-          );
         } else {
           web3Store.isMetamaskConnected(false);
-          toastType = "metamaskMainNetwork";
+          setToastType("metamaskMainNetwork");
           toggleToast(true);
         }
       } else {
@@ -189,22 +189,15 @@
 {#if isLoginModalOpen}
   <LoginModal on:close={event => (isLoginModalOpen = false)} />
 {/if}
-{#if isSignupModalOpen}
+{#if isSignupModalOpen && parseInt($userStore.balance) === 0 && $userStore.balance !== undefined}
   <SignupModal on:close={event => (isSignupModalOpen = false)} />
 {/if}
-{#if isWarningModalOpen}
-  <WarningModal
-    type={warningType}
-    size="small"
-    on:close={event => (isWarningModalOpen = false)} />
+{#if $eventsStore.isWarningModalOpen}
+  <WarningModal type={warningType} size="small" />
 {/if}
 <Navbar
   on:openLogin={event => (isLoginModalOpen = true)}
-  on:openSignup={event => (isSignupModalOpen = true)}
-  on:openWarning={event => {
-    isWarningModalOpen = true;
-    warningType = event.detail;
-  }} />
+  on:openSignup={event => (isSignupModalOpen = true)} />
 <main>
   {#if $web3Store.hasMetamask === false}
     <Alert
@@ -252,10 +245,10 @@
     </div>
   </div>
 </main>
-{#if toastOpen}
+{#if $eventsStore.toastOpen}
   <Toast
-    title={toastTypes[toastType].title}
-    text={toastTypes[toastType].text}
-    type={toastTypes[toastType].type}
-    icon={toastTypes[toastType].icon} />
+    title={toastTypes[$eventsStore.toastType].title}
+    text={toastTypes[$eventsStore.toastType].text}
+    type={toastTypes[$eventsStore.toastType].type}
+    icon={toastTypes[$eventsStore.toastType].icon} />
 {/if}

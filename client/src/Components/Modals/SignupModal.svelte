@@ -1,11 +1,21 @@
 <script>
   import { createEventDispatcher } from "svelte";
   import web3Store from "../../stores/web3-store";
+  import userStore from "../../stores/user-store";
+  import eventsStore from "../../stores/events-store";
   import Modal from "../Modal.svelte";
   import Button from "../Button.svelte";
+  import Alert from "../Alert.svelte";
+  import { onMount } from "svelte";
+  import firebase from "firebase";
 
   const dispatch = createEventDispatcher();
   let translator = true; // true if translator, false if client
+  let ethPrice = 0;
+  let signupFee = "0x1717b72f0a4000"; // default, $1 when ETH is at $140
+  let signupFailed = false;
+  let newBlocksSubscription = undefined;
+  let txHash = undefined;
   const activeClasses = "border-l border-t border-r rounded-t text-blue-700";
   const defaultClasses = "text-blue-500 hover:text-blue-800";
   let info = {
@@ -14,81 +24,18 @@
     email: undefined,
     password: undefined
   };
-  $: formFilled = checkInfo(info);
+  $: checkInfo(info);
   let correctInfo = {
     correctFirstname: undefined,
     correctLastname: undefined,
     correctEmail: undefined,
     correctPassword: null
   };
+  let buttonType = "disabled";
+  let buttonText = "Create Account";
 
   const close = () => {
     dispatch("close", true);
-  };
-
-  const validateForm = async () => {
-    const { web3, contractInstance } = $web3Store;
-    const data = {
-      ...info,
-      address: $web3Store.currentAddress,
-      accountType: translator ? "translator" : "client"
-    };
-    console.log(data);
-    // prepares transaction parameters
-    let tx_builder = contractInstance.methods.addNewTranslator();
-    let encoded_tx = tx_builder.encodeABI();
-    let txObject = {
-      data: encoded_tx,
-      from: $web3Store.currentAddress,
-      to: $web3Store.contractAddress
-    };
-    // sends transaction to contract
-    try {
-      console.log(txObject);
-    } catch (error) {
-      console.log(error);
-    }
-    // sends transaction to contract
-    /*try {
-      const signedTransaction = await window.web3.eth.signTransaction(
-        {
-          from: $web3Store.currentAddress,
-          to: $web3Store.contractAddress,
-          data: contract.methods.addNewTranslator().encodeABI()
-        },
-        $web3Store.currentAddress
-      );*/
-    /*let tx_builder = contract.methods.addNewTranslator();
-      let encoded_tx = tx_builder.encodeABI();
-      let txObject = {
-        data: encoded_tx,
-        from: $web3Store.currentAddress,
-        to: $web3Store.contractAddress
-      };
-      //let signedTx = await window.web3.eth.signTransaction(txObject);
-      window.web3.eth.signTransaction(txObject, (error, result) => {
-        console.log("Error:", error, "Result:", result);
-      });
-      //console.log(signedTx);
-      //console.log(signedTransaction);
-    } catch (error) {
-      console.log(error);
-    }*/
-    /*contract.methods
-      .addNewTranslator()
-      .send({ from: $web3Store.currentAddress })
-      .on("transactionHash", hash => {
-        console.log("txhash:", hash);
-      })
-      .on("receipt", receipt => {
-        console.log("receipt", receipt);
-      })
-      .on("confirmation", (confirmationNumber, receipt) => {
-        console.log("confirmation:", confirmationNumber, receipt);
-      })
-      .on("error", (error, receipt) => {
-        console.log("error:", error, receipt);
-      });*/
   };
 
   const checkInfo = info => {
@@ -126,12 +73,151 @@
       correctInfo = { ...correctInfo, correctPassword: false };
     }
 
-    return Object.keys(correctInfo)
+    const check = Object.keys(correctInfo)
       .map(key => correctInfo[key])
       .reduce((a, b) => a & b);
+    // modify button type
+    if (!!check) {
+      buttonType = "success";
+    } else {
+      buttonType = "disabled";
+    }
   };
 
   const switchTab = () => (translator = !translator);
+
+  const newBlockUnsubscribe = () =>
+    newBlocksSubscription.unsubscribe(function(error, success) {
+      if (success) {
+        console.log("Successfully unsubscribed!");
+      }
+    });
+
+  const validateForm = async () => {
+    // removes error message if visible
+    signupFailed = false;
+    // builds proper data to send transaction
+    const { web3, contractInstance } = $web3Store;
+    const data = {
+      ...info,
+      address: $web3Store.currentAddress,
+      accountType: translator ? "translator" : "client"
+    };
+    // prepares transaction parameters
+    let tx_builder = contractInstance.methods.addNewTranslator();
+    let encoded_tx = tx_builder.encodeABI();
+    let txObject = [
+      {
+        data: encoded_tx,
+        from: $web3Store.currentAddress,
+        to: $web3Store.contractAddress,
+        value: signupFee
+      }
+    ];
+    // subscribes to new block creation to confirm account creation
+    newBlocksSubscription = web3.eth
+      .subscribe("newBlockHeaders", (error, result) => {
+        if (error) {
+          console.log(error);
+          signupFailed = true;
+          return;
+        }
+      })
+      .on("connected", function(subscriptionId) {
+        // once connected, sends transaction to contract
+        try {
+          ethereum.sendAsync(
+            {
+              method: "eth_sendTransaction",
+              params: txObject,
+              from: $web3Store.currentAddress
+            },
+            (err, receipt) => {
+              if (err) {
+                console.log(err);
+                signupFailed = true;
+                newBlockUnsubscribe();
+                return;
+              }
+
+              if (receipt.result) {
+                txHash = receipt.result;
+                console.log("tx hash:", txHash);
+                buttonType = "loading";
+                buttonText = "Loading...";
+                // display toast for pending transaction
+                eventsStore.setToastType("pendingTx");
+                eventsStore.toggleToast(true);
+              } else {
+                signupFailed = true;
+                newBlockUnsubscribe();
+                return;
+              }
+            }
+          );
+        } catch (error) {
+          console.log(error);
+          newBlockUnsubscribe();
+        }
+      })
+      .on("data", async blockHeader => {
+        const blockHash = blockHeader.hash;
+        // fetches block
+        const block = await web3.eth.getBlock(blockHash);
+        // gets the transactions from block
+        const { transactions } = block;
+        if (transactions.includes(txHash)) {
+          console.log("Tx included!");
+          // unsubscribe from listening to new blocks
+          newBlockUnsubscribe();
+          // updates user's balance (will close signup modal)
+          const userBalance = await $web3Store.contractInstance.methods
+            .returnTranslator($web3Store.currentAddress)
+            .call();
+          userStore.updateBalance(userBalance);
+          // register user in firebase
+          const signupNewUser = firebase
+            .functions()
+            .httpsCallable("signupNewUser");
+          const user = await signupNewUser(data);
+          if (user.data.error) {
+            // if error
+            console.log(user.data);
+            let message =
+              "You couldn't be signed up. Please contact customer service.";
+            if (user.data.error.errorInfo.message)
+              message = user.data.error.errorInfo.message;
+            close();
+            eventsStore.toggleWarningModal(message);
+          } else {
+            // if user is signed up, we sign them in
+            try {
+              await firebase
+                .auth()
+                .signInWithEmailAndPassword(data.email, data.password);
+              // closes sign up modal
+              close();
+            } catch (error) {
+              console.log(error);
+            }
+          }
+        } else {
+          console.log("Tx pending!");
+        }
+      })
+      .on("error", console.error);
+  };
+
+  onMount(async () => {
+    const ethData = await fetch(
+      "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum"
+    );
+    const ethJson = await ethData.json();
+    ethPrice = ethJson[0].current_price;
+    signupFee = $web3Store.web3.utils.numberToHex(
+      $web3Store.web3.utils.toWei((1 / ethPrice).toFixed(4), "ether")
+    );
+  });
 </script>
 
 <style>
@@ -181,6 +267,21 @@
     color: #2c5282;
   }
 
+  .names-inputs {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    align-items: flex-start;
+  }
+
+  .names-inputs div:first-child {
+    margin-right: 8px;
+  }
+
+  .names-inputs div:last-child {
+    margin-left: 8px;
+  }
+
   .form-input {
     display: flex;
     flex-direction: column;
@@ -215,14 +316,34 @@
 
   .footer {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     margin-top: 1rem;
   }
 
+  .fee-warning {
+    font-size: 0.75rem;
+    text-align: center;
+  }
+
   @media (min-width: 640px) {
     .form-input {
       width: 100%;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .names-inputs {
+      flex-wrap: wrap;
+    }
+
+    .names-inputs div:first-child {
+      margin-right: 0px;
+    }
+
+    .names-inputs div:last-child {
+      margin-left: 0px;
     }
   }
 </style>
@@ -244,23 +365,31 @@
       </li>
     </ul>
     <div style="padding: 1.5rem">
-      <p>Please provide the following details:</p>
+      <p style="margin-top:0px">Please provide the following details:</p>
+      {#if signupFailed}
+        <Alert
+          type="error"
+          hasDot={false}
+          text="An error occurred, you were not signed up, please try again." />
+      {/if}
       <div style="padding-top: 1rem">
-        <div class="form-input">
-          <label for="firstname">First Name</label>
-          <input
-            type="text"
-            id="firstname"
-            class={info.firstname === undefined ? '' : correctInfo.correctFirstname ? 'form-input-success' : 'form-input-error'}
-            on:input={event => (info = { ...info, firstname: event.target.value })} />
-        </div>
-        <div class="form-input">
-          <label for="lastname">Last Name</label>
-          <input
-            type="text"
-            id="lastname"
-            class={info.lastname === undefined ? '' : correctInfo.correctLastname ? 'form-input-success' : 'form-input-error'}
-            on:input={event => (info = { ...info, lastname: event.target.value })} />
+        <div class="names-inputs">
+          <div class="form-input">
+            <label for="firstname">First Name</label>
+            <input
+              type="text"
+              id="firstname"
+              class={info.firstname === undefined ? '' : correctInfo.correctFirstname ? 'form-input-success' : 'form-input-error'}
+              on:input={event => (info = { ...info, firstname: event.target.value })} />
+          </div>
+          <div class="form-input">
+            <label for="lastname">Last Name</label>
+            <input
+              type="text"
+              id="lastname"
+              class={info.lastname === undefined ? '' : correctInfo.correctLastname ? 'form-input-success' : 'form-input-error'}
+              on:input={event => (info = { ...info, lastname: event.target.value })} />
+          </div>
         </div>
         <div class="form-input">
           <label for="email">Email Address</label>
@@ -287,10 +416,16 @@
           {/if}
         </div>
         <div class="footer">
-          <Button
-            text="Create Account"
-            type={formFilled ? 'success' : 'disabled'}
-            on:click={validateForm} />
+          <p class="fee-warning warning-text">
+            {`A one time fee of ${(1 / ethPrice).toFixed(4)} ether will be added to your translator
+            account.`}
+            <br />
+            You can withdraw this money any time you want but
+            <br />
+            your account is considered as inactive if its total balance reaches
+            0 wei.
+          </p>
+          <Button text={buttonText} type={buttonType} on:click={validateForm} />
         </div>
       </div>
     </div>

@@ -18,3 +18,32 @@ body {
 button:focus {
   outline: none;
 }
+
+.loading-icon {
+  display: inline-block;
+  width: 35px;
+  height: 25px;
+}
+.loading-icon:after {
+  content: " ";
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  border-color: #fff transparent #fff transparent;
+  animation: loading-icon 1.2s linear infinite;
+}
+@keyframes loading-icon {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.warning-text {
+  color: #c05621;
+}

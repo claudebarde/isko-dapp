@@ -12,7 +12,6 @@
     position: relative;
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;
-    width: 100%;
     margin: 0 auto;
     z-index: 30;
   }
@@ -62,12 +61,6 @@
 
   .success-dot {
     background-color: #2f855a;
-  }
-
-  @media (min-width: 768px) {
-    .alert {
-      width: 33%;
-    }
   }
 </style>
 

@@ -37,6 +37,7 @@ client/public/build
 client/src/utils/firebaseConfig.js
 client/.firebaserc
 client/firebase.json
+client/firebase-debug.log
 client/firestore.indexes.json
 client/firestore.rules
 client/storage.rules

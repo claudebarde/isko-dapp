@@ -29,6 +29,7 @@
     border-top-left-radius: 0.25rem;
     border-bottom-left-radius: 0.25rem;
     width: 250px;
+    z-index: 100;
   }
 
   .toast-info {
