@@ -70,6 +70,22 @@
     border-top: solid 4px #2b6cb0; /*700*/
   }
 
+  .teal {
+    background-color: #38b2ac; /*500*/
+    border: none;
+    border-bottom: solid 4px #2c7a7b; /*700*/
+  }
+  .teal:hover {
+    background-color: #4fd1c5; /*400*/
+    border: none;
+    border-bottom: solid 4px #38b2ac; /*500*/
+  }
+  .teal-clicked {
+    background-color: #38b2ac; /*500*/
+    border: none;
+    border-top: solid 4px #2c7a7b; /*700*/
+  }
+
   .disabled {
     background-color: #a0aec0; /*500*/
     border: none;

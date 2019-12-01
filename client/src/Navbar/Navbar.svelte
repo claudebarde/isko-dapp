@@ -8,7 +8,6 @@
   import Dot from "../Components/Dot.svelte";
 
   const dispatch = createEventDispatcher();
-  let isUserConnected = undefined;
   let isUserTooltipOpen = false;
 
   const openLoginModal = () => {
@@ -29,24 +28,20 @@
     // checks user balance to know if active
     // FIREBASE AUTH
     firebase.auth().onAuthStateChanged(async user => {
-      console.log(
-        "email:",
-        await firebase
-          .auth()
-          .fetchSignInMethodsForEmail("otolosenc.oc@gmail.com")
-      );
       if (user !== null) {
         console.log(user);
-        if (user.uid !== $web3Store.currentAddress) {
+        if (
+          user.uid.toLowerCase() !== $web3Store.currentAddress.toLowerCase()
+        ) {
           console.log("ethereum address is different from main account");
-          isUserConnected = false;
+          userStore.connectedUser(false);
           await firebase.auth().signOut();
         } else {
-          isUserConnected = true;
+          userStore.connectedUser(true);
         }
       } else {
         console.log("user not connected");
-        isUserConnected = false;
+        userStore.connectedUser(false);
       }
     });
   });
@@ -142,14 +137,17 @@
     <div class="menu-item">
       <span>Market</span>
     </div>
-    {#if isUserConnected !== undefined}
-      {#if isUserConnected}
+    {#if $userStore.isUserConnected !== undefined}
+      {#if $userStore.isUserConnected}
+        <div class="menu-item">
+          <span>Account</span>
+        </div>
         <div
           class="menu-item"
           on:click={async () => {
             try {
               await firebase.auth().signOut();
-              isUserConnected = false;
+              userStore.isUserConnected = false;
             } catch (error) {
               error;
             }
@@ -185,7 +183,8 @@
       </span>
       {#if isUserTooltipOpen}
         <Tooltip
-          content={['Current balance:', `${$web3Store.web3.utils.fromWei($userStore.balance, 'ether')} ether`]} />
+          content={['Current balance:', `${$web3Store.web3.utils.fromWei($userStore.balance, 'ether')} ether`]}
+          align="right" />
       {/if}
     </div>
   </div>

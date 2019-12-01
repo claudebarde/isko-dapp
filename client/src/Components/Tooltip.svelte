@@ -1,5 +1,6 @@
 <script>
   export let content;
+  export let align;
 </script>
 
 <style>
@@ -13,7 +14,6 @@
     background-color: white;
     text-align: left;
     width: 100%;
-    margin-left: -30px;
   }
 
   p {
@@ -21,7 +21,7 @@
   }
 </style>
 
-<div>
+<div style={align === 'right' ? 'margin-left: -30px' : 'margin-right: -30px'}>
   {#each content as line}
     <p>{line}</p>
   {/each}

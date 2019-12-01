@@ -3,6 +3,8 @@
   import firebase from "firebase";
   import Navbar from "./Navbar/Navbar.svelte";
   import Alert from "./Components/Alert.svelte";
+  import Button from "./Components/Button.svelte";
+  import ConnectedServices from "./Components/ConnectedServices.svelte";
   import LoginModal from "./Components/Modals/LoginModal.svelte";
   import SignupModal from "./Components/Modals/SignupModal.svelte";
   import WarningModal from "./Components/Modals/WarningModal.svelte";
@@ -139,6 +141,10 @@
   }
 
   .text-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     width: 100%;
     margin: 3rem 1.5rem;
     padding: 2.5rem 0.5rem;
@@ -222,7 +228,7 @@
     <div class="text-card">
       <h1>Get your translation done!</h1>
       <br />
-      <h3>Post a translation job</h3>
+      <Button text={'Post a translation job'} type="teal" />
     </div>
     <div class="text-card__image">
       <img
@@ -235,7 +241,7 @@
     <div class="text-card">
       <h1>Become a translator!</h1>
       <br />
-      <h3>Sign up now</h3>
+      <Button text={'Sign up now!'} type="teal" />
     </div>
     <div class="text-card__image">
       <img
@@ -245,6 +251,7 @@
     </div>
   </div>
 </main>
+<ConnectedServices />
 {#if $eventsStore.toastOpen}
   <Toast
     title={toastTypes[$eventsStore.toastType].title}

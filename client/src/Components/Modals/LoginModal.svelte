@@ -3,6 +3,7 @@
   import { createEventDispatcher } from "svelte";
   import Modal from "../Modal.svelte";
   import Button from "../Button.svelte";
+  import Alert from "../Alert.svelte";
 
   const dispatch = createEventDispatcher();
 
@@ -10,6 +11,8 @@
   let password = "";
   let buttonType = "info";
   let buttonText = "Log In";
+  let error = false;
+  let errorText = "";
 
   const close = () => {
     dispatch("close", true);
@@ -22,8 +25,16 @@
       await firebase.auth().signInWithEmailAndPassword(email, password);
       // closes sign up modal
       close();
-    } catch (error) {
-      console.log(error);
+    } catch (err) {
+      console.log(err);
+      if (err.message) {
+        errorText = err.message;
+      } else {
+        errorText = "Unable to log you in, please try again later.";
+      }
+      error = true;
+      buttonText = "Log In";
+      buttonType = "info";
     }
   };
 </script>
@@ -63,6 +74,9 @@
       <label for="email">Password</label>
       <input type="password" id="password" bind:value={password} />
     </div>
+    {#if error}
+      <Alert type="error" text={errorText} hasDot={false} />
+    {/if}
     <div class="footer">
       <Button text={buttonText} type={buttonType} on:click={login} />
     </div>

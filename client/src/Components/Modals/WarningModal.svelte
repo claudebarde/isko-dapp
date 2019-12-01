@@ -15,5 +15,5 @@
 
 <Modal on:close={close} type="warning" {size}>
   <span slot="title">Warning</span>
-  <div slot="body">{$eventsStore.warningModalMessage}</div>
+  <div slot="body">{$eventsStore.warningModalMessage || ''}</div>
 </Modal>

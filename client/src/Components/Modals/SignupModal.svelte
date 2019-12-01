@@ -86,6 +86,10 @@
 
   const switchTab = () => (translator = !translator);
 
+  const checkIfEmailExists = event => {
+    console.log(event.target.value);
+  };
+
   const newBlockUnsubscribe = () =>
     newBlocksSubscription.unsubscribe(function(error, success) {
       if (success) {
@@ -96,116 +100,168 @@
   const validateForm = async () => {
     // removes error message if visible
     signupFailed = false;
-    // builds proper data to send transaction
+    // checks if email address is valid for firebase
+    try {
+      const signinMethods = await firebase
+        .auth()
+        .fetchSignInMethodsForEmail(info.email);
+      if (signinMethods.length > 0)
+        throw new Error("This email address already exists!");
+    } catch (error) {
+      console.log(error);
+      eventsStore.toggleWarningModal(
+        "The email address already exists or is not correctly formatted!"
+      );
+      return;
+    }
+    // builds proper data to sign up user
     const { web3, contractInstance } = $web3Store;
     const data = {
       ...info,
       address: $web3Store.currentAddress,
       accountType: translator ? "translator" : "client"
     };
-    // prepares transaction parameters
-    let tx_builder = contractInstance.methods.addNewTranslator();
-    let encoded_tx = tx_builder.encodeABI();
-    let txObject = [
-      {
-        data: encoded_tx,
-        from: $web3Store.currentAddress,
-        to: $web3Store.contractAddress,
-        value: signupFee
-      }
-    ];
-    // subscribes to new block creation to confirm account creation
-    newBlocksSubscription = web3.eth
-      .subscribe("newBlockHeaders", (error, result) => {
-        if (error) {
-          console.log(error);
-          signupFailed = true;
-          return;
+    // creates translator or customer account
+    if (translator) {
+      // TRANSLATOR
+      // prepares transaction parameters
+      let tx_builder = contractInstance.methods.addNewTranslator();
+      let encoded_tx = tx_builder.encodeABI();
+      let txObject = [
+        {
+          data: encoded_tx,
+          from: $web3Store.currentAddress,
+          to: $web3Store.contractAddress,
+          value: signupFee
         }
-      })
-      .on("connected", function(subscriptionId) {
-        // once connected, sends transaction to contract
-        try {
-          ethereum.sendAsync(
-            {
-              method: "eth_sendTransaction",
-              params: txObject,
-              from: $web3Store.currentAddress
-            },
-            (err, receipt) => {
-              if (err) {
-                console.log(err);
-                signupFailed = true;
-                newBlockUnsubscribe();
-                return;
-              }
-
-              if (receipt.result) {
-                txHash = receipt.result;
-                console.log("tx hash:", txHash);
-                buttonType = "loading";
-                buttonText = "Loading...";
-                // display toast for pending transaction
-                eventsStore.setToastType("pendingTx");
-                eventsStore.toggleToast(true);
-              } else {
-                signupFailed = true;
-                newBlockUnsubscribe();
-                return;
-              }
-            }
-          );
-        } catch (error) {
-          console.log(error);
-          newBlockUnsubscribe();
-        }
-      })
-      .on("data", async blockHeader => {
-        const blockHash = blockHeader.hash;
-        // fetches block
-        const block = await web3.eth.getBlock(blockHash);
-        // gets the transactions from block
-        const { transactions } = block;
-        if (transactions.includes(txHash)) {
-          console.log("Tx included!");
-          // unsubscribe from listening to new blocks
-          newBlockUnsubscribe();
-          // updates user's balance (will close signup modal)
-          const userBalance = await $web3Store.contractInstance.methods
-            .returnTranslator($web3Store.currentAddress)
-            .call();
-          userStore.updateBalance(userBalance);
-          // register user in firebase
-          const signupNewUser = firebase
-            .functions()
-            .httpsCallable("signupNewUser");
-          const user = await signupNewUser(data);
-          if (user.data.error) {
-            // if error
-            console.log(user.data);
-            let message =
-              "You couldn't be signed up. Please contact customer service.";
-            if (user.data.error.errorInfo.message)
-              message = user.data.error.errorInfo.message;
-            close();
-            eventsStore.toggleWarningModal(message);
-          } else {
-            // if user is signed up, we sign them in
-            try {
-              await firebase
-                .auth()
-                .signInWithEmailAndPassword(data.email, data.password);
-              // closes sign up modal
-              close();
-            } catch (error) {
-              console.log(error);
-            }
+      ];
+      // subscribes to new block creation to confirm account creation
+      newBlocksSubscription = web3.eth
+        .subscribe("newBlockHeaders", (error, result) => {
+          if (error) {
+            console.log(error);
+            signupFailed = true;
+            return;
           }
+        })
+        .on("connected", function(subscriptionId) {
+          // once connected, sends transaction to contract
+          try {
+            ethereum.sendAsync(
+              {
+                method: "eth_sendTransaction",
+                params: txObject,
+                from: $web3Store.currentAddress
+              },
+              (err, receipt) => {
+                if (err) {
+                  console.log(err);
+                  signupFailed = true;
+                  newBlockUnsubscribe();
+                  return;
+                }
+
+                if (receipt.result) {
+                  txHash = receipt.result;
+                  console.log("tx hash:", txHash);
+                  buttonType = "loading";
+                  buttonText = "Loading...";
+                  // display toast for pending transaction
+                  eventsStore.setToastType("pendingTx");
+                  eventsStore.toggleToast(true);
+                } else {
+                  signupFailed = true;
+                  newBlockUnsubscribe();
+                  return;
+                }
+              }
+            );
+          } catch (error) {
+            console.log(error);
+            newBlockUnsubscribe();
+          }
+        })
+        .on("data", async blockHeader => {
+          const blockHash = blockHeader.hash;
+          // fetches block
+          const block = await web3.eth.getBlock(blockHash);
+          // gets the transactions from block
+          const { transactions } = block;
+          if (transactions.includes(txHash)) {
+            console.log("Tx included!");
+            // unsubscribe from listening to new blocks
+            newBlockUnsubscribe();
+            // updates user's balance (will close signup modal)
+            const userBalance = await $web3Store.contractInstance.methods
+              .returnTranslator($web3Store.currentAddress)
+              .call();
+            userStore.updateBalance(userBalance);
+            // register user in firebase
+            const signupNewUser = firebase
+              .functions()
+              .httpsCallable("signupNewUser");
+            const user = await signupNewUser({ ...data, signupTxHash: txHash });
+            if (user.data.error) {
+              // if error
+              console.log(user.data);
+              let message =
+                "You couldn't be signed up. Please contact customer service.";
+              if (user.data.error.errorInfo.message)
+                message = user.data.error.errorInfo.message;
+              close();
+              eventsStore.toggleWarningModal(message);
+            } else {
+              // if user is signed up, we sign them in
+              try {
+                await firebase
+                  .auth()
+                  .signInWithEmailAndPassword(data.email, data.password);
+                // closes sign up modal
+                close();
+              } catch (error) {
+                console.log(error);
+              }
+            }
+          } else {
+            console.log("Tx pending!");
+          }
+        })
+        .on("error", console.error);
+    } else {
+      // CUSTOMER
+      buttonType = "loading";
+      buttonText = "Loading...";
+      try {
+        // register user in firebase
+        const signupNewUser = firebase
+          .functions()
+          .httpsCallable("signupNewUser");
+        const customer = await signupNewUser({ ...data, signupTxHash: 0 });
+        if (customer.data.error) {
+          // if error
+          console.log(customer.data);
+          let message =
+            "You couldn't be signed up. Please contact customer service.";
+          if (user.data.error.errorInfo.message)
+            message = customer.data.error.errorInfo.message;
+          close();
+          eventsStore.toggleWarningModal(message);
         } else {
-          console.log("Tx pending!");
+          // if user is signed up, we sign them in
+          await firebase
+            .auth()
+            .signInWithEmailAndPassword(data.email, data.password);
+          // closes sign up modal
+          close();
         }
-      })
-      .on("error", console.error);
+      } catch (error) {
+        console.log(error);
+        close();
+        eventsStore.toggleWarningModal(
+          "An error has occurred, please try again later."
+        );
+      }
+    }
   };
 
   onMount(async () => {
@@ -360,7 +416,7 @@
       </li>
       <li style={!translator ? 'margin-bottom: -1px' : ''} on:click={switchTab}>
         <span class={!translator ? 'active-tab' : 'inactive-tab'}>
-          As a client
+          As a customer
         </span>
       </li>
     </ul>
@@ -416,15 +472,17 @@
           {/if}
         </div>
         <div class="footer">
-          <p class="fee-warning warning-text">
-            {`A one time fee of ${(1 / ethPrice).toFixed(4)} ether will be added to your translator
+          {#if translator}
+            <p class="fee-warning warning-text">
+              {`A one time fee of ${(1 / ethPrice).toFixed(4)} ether will be added to your translator
             account.`}
-            <br />
-            You can withdraw this money any time you want but
-            <br />
-            your account is considered as inactive if its total balance reaches
-            0 wei.
-          </p>
+              <br />
+              You can withdraw this money any time you want but
+              <br />
+              your account is considered as inactive if its total balance
+              reaches 0 wei.
+            </p>
+          {/if}
           <Button text={buttonText} type={buttonType} on:click={validateForm} />
         </div>
       </div>

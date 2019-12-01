@@ -2,6 +2,7 @@ import { writable } from "svelte/store";
 
 const store = () => {
   const { subscribe, set, update } = writable({
+    isUserConnected: undefined,
     balance: undefined
   });
 
@@ -9,6 +10,9 @@ const store = () => {
     subscribe,
     updateBalance: newBalance => {
       update(currentStore => ({ ...currentStore, balance: newBalance }));
+    },
+    connectedUser: status => {
+      update(currentStore => ({ ...currentStore, isUserConnected: status }));
     }
   };
 };
