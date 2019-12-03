@@ -1,4 +1,5 @@
 <script>
+  import Web3 from "web3";
   import web3Store from "../stores/web3-store";
   import userStore from "../stores/user-store";
   import eventsStore from "../stores/events-store";
@@ -6,9 +7,14 @@
   import firebase from "../utils/firebaseConfig";
   import Tooltip from "../Components/Tooltip.svelte";
   import Dot from "../Components/Dot.svelte";
+  import Toast from "../Components/Toast.svelte";
+  import { link } from "svelte-spa-router";
+  import contractInterface from "../../../build/contracts/IskoEth.json";
+  import "firebase/firestore";
 
   const dispatch = createEventDispatcher();
   let isUserTooltipOpen = false;
+  const { toastTypes } = $eventsStore;
 
   const openLoginModal = () => {
     dispatch("openLogin", true);
@@ -24,7 +30,111 @@
     );
   };
 
-  onMount(() => {
+  onMount(async () => {
+    // if MetaMask is already connected (for example after route change)
+    if ($web3Store.isMetamaskConnected) return;
+    const { toggleToast, setToastType } = eventsStore;
+
+    toggleToast(true);
+
+    // detects ethereum provider injected by MetaMask
+    if (window.ethereum) {
+      // saves web3 instance in the store
+      // TODO: REPLACE LOCALHOST WITH INFURA NODE FOR PRODUCTION
+      const web3 = new Web3(
+        new Web3.providers.WebsocketProvider("ws://localhost:7545")
+      );
+      web3Store.setWeb3(web3);
+      // instantiates contract interface
+      const contract = new web3.eth.Contract(
+        contractInterface.abi,
+        $web3Store.contractAddress
+      );
+      web3Store.setContractInstance(contract);
+      // if MetaMask is installed
+      if (ethereum.isMetaMask) {
+        if (
+          parseInt(ethereum.networkVersion) === 1 ||
+          process.env.NODE_ENV === "development"
+        ) {
+          try {
+            const accounts = await ethereum.enable();
+            web3Store.hasMetamask(true);
+            // finds user's address
+            if (accounts.length === 0) {
+              web3Store.isMetamaskConnected(false);
+            } else {
+              // if connected
+              web3Store.isMetamaskConnected(true);
+              web3Store.setCurrentAddress(accounts[0]);
+              setToastType("metamaskConnected");
+              toggleToast(true);
+              // listens to account change events with MetaMask
+              ethereum.on("accountsChanged", async accounts => {
+                // sign out user from firebase
+                await firebase.auth().signOut();
+                if (accounts.length === 0) {
+                  web3Store.isMetamaskConnected(false);
+                  web3Store.setCurrentAddress(undefined);
+                  setToastType("metamaskDisconnected");
+                  toggleToast(true);
+                } else {
+                  // if connected
+                  web3Store.isMetamaskConnected(true);
+                  web3Store.setCurrentAddress(accounts[0]);
+                  // updates user's balance (will close signup modal)
+                  const userBalance = await $web3Store.contractInstance.methods
+                    .returnTranslator($web3Store.currentAddress)
+                    .call();
+                  userStore.updateBalance(userBalance);
+                  setToastType("metamaskConnected");
+                  toggleToast(true);
+                }
+              });
+              // listens to network change events with MetaMask
+              ethereum.on("networkChanged", networkID => {
+                if (networkID === 1) {
+                  // if connected
+                  web3Store.isMetamaskConnected(true);
+                  web3Store.setCurrentAddress(accounts[0]);
+                  setToastType("metamaskConnected");
+                  toggleToast(true);
+                } else {
+                  web3Store.isMetamaskConnected(false);
+                  web3Store.setCurrentAddress(undefined);
+                  setToastType("metamaskMainNetwork");
+                  toggleToast(true);
+                }
+              });
+            }
+          } catch (error) {
+            console.log(error);
+            web3Store.isMetamaskConnected(false);
+          }
+          // checks if user is already registered in smart contract
+          try {
+            // returns translator balance if any
+            const userBalance = await contract.methods
+              .returnTranslator($web3Store.currentAddress)
+              .call();
+            userStore.updateBalance(userBalance);
+          } catch (error) {
+            console.log(error);
+          }
+        } else {
+          web3Store.isMetamaskConnected(false);
+          setToastType("metamaskMainNetwork");
+          toggleToast(true);
+        }
+      } else {
+        web3Store.hasMetamask(false);
+      }
+    } else {
+      web3Store.hasMetamask(false);
+      console.log(
+        "Non-Ethereum browser detected. You should consider trying MetaMask!"
+      );
+    }
     // checks user balance to know if active
     // FIREBASE AUTH
     firebase.auth().onAuthStateChanged(async user => {
@@ -38,6 +148,24 @@
           await firebase.auth().signOut();
         } else {
           userStore.connectedUser(true);
+          // if user has a valid ethereum address, they are a translator
+          // else, they are a customer
+          if ($web3Store.web3.utils.isAddress(user.uid)) {
+            userStore.updateAccountType("translator");
+          } else {
+            userStore.updateAccountType("customer");
+          }
+          if (!$userStore.info) {
+            // prepares function to fetch user's information
+            const db = firebase.firestore();
+            const doc = await db
+              .collection($userStore.accountType + "s")
+              .doc(user.uid)
+              .get();
+            if (doc.exists) {
+              userStore.updateAccountInfo({ ...doc.data(), uid: user.uid });
+            }
+          }
         }
       } else {
         console.log("user not connected");
@@ -79,17 +207,14 @@
     margin-right: 2rem;
   }
 
-  .menu-item {
+  .navbar a {
     padding: 0px 8px;
     color: #edf2f7;
+    text-decoration: none;
   }
 
-  .menu-item:hover {
+  .navbar a:hover {
     color: white;
-  }
-
-  .menu-item span {
-    cursor: pointer;
   }
 
   .menu-item-address {
@@ -127,20 +252,20 @@
 </style>
 
 <nav class="navbar">
-  <div class="navbar-logo">Isko Eth</div>
+  <div class="navbar-logo">
+    <a href="/" use:link>Isko Eth</a>
+  </div>
   <div class="navbar-menu">
-    <div
-      class="menu-item"
-      on:click={() => eventsStore.toggleWarningModal('firebase-nosignup')}>
-      <span>Translate</span>
+    <div class="menu-item">
+      <a href="/translate" use:link>Translate</a>
     </div>
     <div class="menu-item">
-      <span>Market</span>
+      <a href="/market" use:link>Market</a>
     </div>
     {#if $userStore.isUserConnected !== undefined}
       {#if $userStore.isUserConnected}
         <div class="menu-item">
-          <span>Account</span>
+          <a href="/account" use:link>Account</a>
         </div>
         <div
           class="menu-item"
@@ -152,20 +277,20 @@
               error;
             }
           }}>
-          <span>Log Out</span>
+          <a href="/" use:link>Log Out</a>
         </div>
       {:else}
         {#if parseInt($userStore.balance) === 0}
           <div
             class="menu-item"
             on:click={$web3Store.isMetamaskConnected ? openSignupModal : openWarningModal}>
-            <span>Sign Up</span>
+            <a href="#">Sign Up</a>
           </div>
         {/if}
         <div
           class="menu-item"
           on:click={$web3Store.isMetamaskConnected ? openLoginModal : openWarningModal}>
-          <span>Log In</span>
+          <a href="#">Log In</a>
         </div>
       {/if}
     {/if}
@@ -192,3 +317,10 @@
     <img src="images/menu.svg" alt="menu" class="cursor-pointer" />
   </div>
 </nav>
+{#if $eventsStore.toastOpen}
+  <Toast
+    title={toastTypes[$eventsStore.toastType].title}
+    text={toastTypes[$eventsStore.toastType].text}
+    type={toastTypes[$eventsStore.toastType].type}
+    icon={toastTypes[$eventsStore.toastType].icon} />
+{/if}

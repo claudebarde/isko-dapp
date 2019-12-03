@@ -21,6 +21,7 @@
   const login = async () => {
     buttonText = "Loading...";
     buttonType = "loading";
+    error = false;
     try {
       await firebase.auth().signInWithEmailAndPassword(email, password);
       // closes sign up modal

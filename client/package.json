@@ -19,6 +19,9 @@
   },
   "dependencies": {
     "firebase": "^7.5.0",
+    "langs": "^2.0.0",
+    "moment": "^2.24.0",
+    "svelte-spa-router": "^2.0.0",
     "web3": "^1.2.4"
   }
 }

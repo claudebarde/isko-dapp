@@ -119,7 +119,9 @@
     const data = {
       ...info,
       address: $web3Store.currentAddress,
-      accountType: translator ? "translator" : "client"
+      accountType: translator ? "translator" : "client",
+      feedbacks: [], // array of objects {translation, note, comment}
+      languagePairs: [] // array of objects {from: lang, to: lang}
     };
     // creates translator or customer account
     if (translator) {

@@ -7,7 +7,7 @@ body {
 
 body {
   color: #333;
-  background-color: ##f7f8f9;
+  background-color: #f7f8f9;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -46,4 +46,9 @@ button:focus {
 
 .warning-text {
   color: #c05621;
+}
+
+main {
+  padding: 7rem 0.5rem 0.75rem 0.5rem;
+  height: 100%;
 }
