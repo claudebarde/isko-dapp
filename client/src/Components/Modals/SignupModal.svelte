@@ -118,7 +118,7 @@
     const { web3, contractInstance } = $web3Store;
     const data = {
       ...info,
-      address: $web3Store.currentAddress,
+      address: $web3Store.currentAddress.toLowerCase(),
       accountType: translator ? "translator" : "client",
       feedbacks: [], // array of objects {translation, note, comment}
       languagePairs: [] // array of objects {from: lang, to: lang}
@@ -132,7 +132,7 @@
       let txObject = [
         {
           data: encoded_tx,
-          from: $web3Store.currentAddress,
+          from: $web3Store.currentAddress.toLowerCase(),
           to: $web3Store.contractAddress,
           value: signupFee
         }
@@ -153,7 +153,7 @@
               {
                 method: "eth_sendTransaction",
                 params: txObject,
-                from: $web3Store.currentAddress
+                from: $web3Store.currentAddress.toLowerCase()
               },
               (err, receipt) => {
                 if (err) {
@@ -195,7 +195,7 @@
             newBlockUnsubscribe();
             // updates user's balance (will close signup modal)
             const userBalance = await $web3Store.contractInstance.methods
-              .returnTranslator($web3Store.currentAddress)
+              .returnTranslator($web3Store.currentAddress.toLowerCase())
               .call();
             userStore.updateBalance(userBalance);
             // register user in firebase

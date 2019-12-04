@@ -8,7 +8,7 @@
   import Tooltip from "../Components/Tooltip.svelte";
   import Dot from "../Components/Dot.svelte";
   import Toast from "../Components/Toast.svelte";
-  import { link } from "svelte-spa-router";
+  import { link, push } from "svelte-spa-router";
   import contractInterface from "../../../build/contracts/IskoEth.json";
   import "firebase/firestore";
 
@@ -66,13 +66,17 @@
             } else {
               // if connected
               web3Store.isMetamaskConnected(true);
-              web3Store.setCurrentAddress(accounts[0]);
+              web3Store.setCurrentAddress(accounts[0].toLowerCase());
               setToastType("metamaskConnected");
               toggleToast(true);
               // listens to account change events with MetaMask
               ethereum.on("accountsChanged", async accounts => {
                 // sign out user from firebase
                 await firebase.auth().signOut();
+                // we reset info in user store
+                userStore.reset();
+                userStore.connectedUser(false);
+                userStore.updateBalance(0);
                 if (accounts.length === 0) {
                   web3Store.isMetamaskConnected(false);
                   web3Store.setCurrentAddress(undefined);
@@ -81,10 +85,10 @@
                 } else {
                   // if connected
                   web3Store.isMetamaskConnected(true);
-                  web3Store.setCurrentAddress(accounts[0]);
+                  web3Store.setCurrentAddress(accounts[0].toLowerCase());
                   // updates user's balance (will close signup modal)
                   const userBalance = await $web3Store.contractInstance.methods
-                    .returnTranslator($web3Store.currentAddress)
+                    .returnTranslator(accounts[0].toLowerCase())
                     .call();
                   userStore.updateBalance(userBalance);
                   setToastType("metamaskConnected");
@@ -96,7 +100,7 @@
                 if (networkID === 1) {
                   // if connected
                   web3Store.isMetamaskConnected(true);
-                  web3Store.setCurrentAddress(accounts[0]);
+                  web3Store.setCurrentAddress(accounts[0].toLowerCase());
                   setToastType("metamaskConnected");
                   toggleToast(true);
                 } else {
@@ -115,7 +119,7 @@
           try {
             // returns translator balance if any
             const userBalance = await contract.methods
-              .returnTranslator($web3Store.currentAddress)
+              .returnTranslator($web3Store.currentAddress.toLowerCase())
               .call();
             userStore.updateBalance(userBalance);
           } catch (error) {
@@ -140,36 +144,58 @@
     firebase.auth().onAuthStateChanged(async user => {
       if (user !== null) {
         console.log(user);
-        if (
-          user.uid.toLowerCase() !== $web3Store.currentAddress.toLowerCase()
-        ) {
-          console.log("ethereum address is different from main account");
-          userStore.connectedUser(false);
-          await firebase.auth().signOut();
-        } else {
-          userStore.connectedUser(true);
-          // if user has a valid ethereum address, they are a translator
-          // else, they are a customer
-          if ($web3Store.web3.utils.isAddress(user.uid)) {
-            userStore.updateAccountType("translator");
+        // check if user is translator or customer
+        let accountDB = undefined;
+        if ($web3Store.web3 && $web3Store.web3.utils.isAddress(user.uid)) {
+          userStore.updateAccountType("translator");
+          accountDB = "translators";
+          // check if current address matches registered address
+          if (
+            user.uid.toLowerCase() !== $web3Store.currentAddress.toLowerCase()
+          ) {
+            // signs out user
+            await firebase.auth().signOut();
+            userStore.reset();
+            userStore.connectedUser(false);
+            userStore.updateBalance(undefined);
+            // goes back to main page
+            push("/");
           } else {
-            userStore.updateAccountType("customer");
-          }
-          if (!$userStore.info) {
-            // prepares function to fetch user's information
-            const db = firebase.firestore();
-            const doc = await db
-              .collection($userStore.accountType + "s")
-              .doc(user.uid)
-              .get();
-            if (doc.exists) {
-              userStore.updateAccountInfo({ ...doc.data(), uid: user.uid });
+            userStore.connectedUser(true);
+            // checks if user is already registered in smart contract
+            try {
+              // returns translator balance if any
+              const userBalance = await $web3Store.contractInstance.methods
+                .returnTranslator($web3Store.currentAddress.toLowerCase())
+                .call();
+              userStore.updateBalance(userBalance);
+            } catch (error) {
+              console.log(error);
             }
+          }
+        } else {
+          userStore.updateAccountType("customer");
+          accountDB = "customers";
+          userStore.connectedUser(true);
+        }
+        // we fetch user's info
+        if (!$userStore.info) {
+          console.log("call to firebase");
+          // prepares function to fetch user's information
+          const db = firebase.firestore();
+          const doc = await db
+            .collection($userStore.accountType + "s")
+            .doc(user.uid)
+            .get();
+          if (doc.exists) {
+            userStore.updateAccountInfo({ ...doc.data(), uid: user.uid });
           }
         }
       } else {
         console.log("user not connected");
         userStore.connectedUser(false);
+        // goes back to main page
+        push("/");
       }
     });
   });
@@ -272,7 +298,7 @@
           on:click={async () => {
             try {
               await firebase.auth().signOut();
-              userStore.isUserConnected = false;
+              userStore.connectedUser(false);
             } catch (error) {
               error;
             }
@@ -297,6 +323,8 @@
     <div class="menu-item-address">
       {#if !!parseInt($userStore.balance)}
         <Dot type="success" />
+      {:else if $userStore.accountType === 'customer'}
+        <Dot type="info" />
       {:else}
         <Dot type="error" />
       {/if}
@@ -304,7 +332,7 @@
         class="menu-item-address__text"
         on:mouseenter={() => (isUserTooltipOpen = true)}
         on:mouseleave={() => (isUserTooltipOpen = false)}>
-        {$web3Store.currentAddress === undefined ? '🚫' : $web3Store.currentAddress.slice(0, 4) + '...' + $web3Store.currentAddress.slice(-4)}
+        {$web3Store.currentAddress === undefined ? '🚫' : $web3Store.currentAddress.slice(0, 6) + '...' + $web3Store.currentAddress.slice(-4)}
       </span>
       {#if isUserTooltipOpen}
         <Tooltip

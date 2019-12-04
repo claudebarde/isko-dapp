@@ -23,7 +23,7 @@ const store = () => {
     setCurrentAddress: newAddress =>
       update(currentStore => ({
         ...currentStore,
-        currentAddress: newAddress
+        currentAddress: newAddress.toLowerCase()
       })),
     setWeb3: instance =>
       update(currentStore => ({
