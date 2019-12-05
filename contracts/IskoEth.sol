@@ -74,8 +74,9 @@ contract IskoEth {
     // pays freelancer on request
     function payTranslator () public {
         // address must be registered
-        require(translators[msg.sender] != 0, "Your balance is empty");
-        uint balance = translators[msg.sender];
+        // 10 wei are left in the balance to keep the account active
+        require(translators[msg.sender] > 10, "Your balance is empty");
+        uint balance = translators[msg.sender] - 10;
         msg.sender.transfer(balance);
     }
     

@@ -10,11 +10,13 @@
   import Toast from "../Components/Toast.svelte";
   import { link, push } from "svelte-spa-router";
   import contractInterface from "../../../build/contracts/IskoEth.json";
+  import { shortenHash } from "../utils/functions";
   import "firebase/firestore";
 
   const dispatch = createEventDispatcher();
   let isUserTooltipOpen = false;
   const { toastTypes } = $eventsStore;
+  const { toggleToast, setToastType } = eventsStore;
 
   const openLoginModal = () => {
     dispatch("openLogin", true);
@@ -24,16 +26,114 @@
     dispatch("openSignup", true);
   };
 
-  const openWarningModal = () => {
-    eventsStore.toggleWarningModal(
-      "You must be connected to MetaMask to perform this action."
-    );
+  const openWarningModal = msg => {
+    eventsStore.toggleWarningModal(msg);
   };
+
+  // listens to account change events with MetaMask
+  ethereum.on("accountsChanged", async accounts => {
+    // sign out user from firebase
+    await firebase.auth().signOut();
+    // we reset info in user store
+    userStore.reset();
+    userStore.connectedUser(false);
+    userStore.updateBalance(0);
+    if (accounts.length === 0) {
+      web3Store.isMetamaskConnected(false);
+      web3Store.setCurrentAddress(undefined);
+      setToastType("metamaskDisconnected");
+      toggleToast(true);
+    } else {
+      // if connected
+      web3Store.isMetamaskConnected(true);
+      web3Store.setCurrentAddress(accounts[0].toLowerCase());
+      // updates user's balance (will close signup modal)
+      const userBalance = await $web3Store.contractInstance.methods
+        .returnTranslator(accounts[0].toLowerCase())
+        .call();
+      userStore.updateBalance(userBalance);
+      if (userBalance > 0) userStore.updateAccountType("translator");
+      setToastType("metamaskConnected");
+      toggleToast(true);
+    }
+  });
+
+  // listens to network change events with MetaMask
+  ethereum.on("networkChanged", networkID => {
+    if (networkID === 1) {
+      // if connected
+      web3Store.isMetamaskConnected(true);
+      web3Store.setCurrentAddress(accounts[0].toLowerCase());
+      setToastType("metamaskConnected");
+      toggleToast(true);
+    } else {
+      web3Store.isMetamaskConnected(false);
+      web3Store.setCurrentAddress(undefined);
+      setToastType("metamaskMainNetwork");
+      toggleToast(true);
+    }
+  });
+
+  // FIREBASE AUTH
+  firebase.auth().onAuthStateChanged(async user => {
+    console.log(user);
+    if (user !== null) {
+      // checks if current address matches uid
+      if (user.uid.toLowerCase() === $web3Store.currentAddress.toLowerCase()) {
+        userStore.connectedUser(true);
+        if ($userStore.balance > 0) {
+          // user is registered as a translator
+          userStore.updateAccountType("translator");
+          // we fetch user's info
+          if (!$userStore.info) {
+            console.log("call to firebase/translators");
+            // prepares function to fetch user's information
+            const db = firebase.firestore();
+            const doc = await db
+              .collection("translators")
+              .doc(user.uid)
+              .get();
+            if (doc.exists) {
+              userStore.updateAccountInfo({ ...doc.data(), uid: user.uid });
+            }
+          }
+        } else {
+          // user is registered as a customer
+          userStore.updateAccountType("customer");
+          // we fetch user's info
+          if (!$userStore.info) {
+            console.log("call to firebase/customers");
+            // prepares function to fetch user's information
+            const db = firebase.firestore();
+            const doc = await db
+              .collection("customers")
+              .doc(user.uid)
+              .get();
+            if (doc.exists) {
+              userStore.updateAccountInfo({ ...doc.data(), uid: user.uid });
+            }
+          }
+        }
+      } else {
+        openWarningModal(
+          `Your current address (${shortenHash(
+            $web3Store.currentAddress
+          )}) doesn't match your registered address. Please switch to the address you used when registering your account.`
+        );
+        // sign out user from firebase
+        await firebase.auth().signOut();
+      }
+    } else {
+      console.log("user not connected");
+      userStore.connectedUser(false);
+      // goes back to main page
+      push("/");
+    }
+  });
 
   onMount(async () => {
     // if MetaMask is already connected (for example after route change)
     if ($web3Store.isMetamaskConnected) return;
-    const { toggleToast, setToastType } = eventsStore;
 
     toggleToast(true);
 
@@ -69,47 +169,6 @@
               web3Store.setCurrentAddress(accounts[0].toLowerCase());
               setToastType("metamaskConnected");
               toggleToast(true);
-              // listens to account change events with MetaMask
-              ethereum.on("accountsChanged", async accounts => {
-                // sign out user from firebase
-                await firebase.auth().signOut();
-                // we reset info in user store
-                userStore.reset();
-                userStore.connectedUser(false);
-                userStore.updateBalance(0);
-                if (accounts.length === 0) {
-                  web3Store.isMetamaskConnected(false);
-                  web3Store.setCurrentAddress(undefined);
-                  setToastType("metamaskDisconnected");
-                  toggleToast(true);
-                } else {
-                  // if connected
-                  web3Store.isMetamaskConnected(true);
-                  web3Store.setCurrentAddress(accounts[0].toLowerCase());
-                  // updates user's balance (will close signup modal)
-                  const userBalance = await $web3Store.contractInstance.methods
-                    .returnTranslator(accounts[0].toLowerCase())
-                    .call();
-                  userStore.updateBalance(userBalance);
-                  setToastType("metamaskConnected");
-                  toggleToast(true);
-                }
-              });
-              // listens to network change events with MetaMask
-              ethereum.on("networkChanged", networkID => {
-                if (networkID === 1) {
-                  // if connected
-                  web3Store.isMetamaskConnected(true);
-                  web3Store.setCurrentAddress(accounts[0].toLowerCase());
-                  setToastType("metamaskConnected");
-                  toggleToast(true);
-                } else {
-                  web3Store.isMetamaskConnected(false);
-                  web3Store.setCurrentAddress(undefined);
-                  setToastType("metamaskMainNetwork");
-                  toggleToast(true);
-                }
-              });
             }
           } catch (error) {
             console.log(error);
@@ -122,6 +181,7 @@
               .returnTranslator($web3Store.currentAddress.toLowerCase())
               .call();
             userStore.updateBalance(userBalance);
+            if (userBalance > 0) userStore.updateAccountType("translator");
           } catch (error) {
             console.log(error);
           }
@@ -139,65 +199,6 @@
         "Non-Ethereum browser detected. You should consider trying MetaMask!"
       );
     }
-    // checks user balance to know if active
-    // FIREBASE AUTH
-    firebase.auth().onAuthStateChanged(async user => {
-      if (user !== null) {
-        console.log(user);
-        // check if user is translator or customer
-        let accountDB = undefined;
-        if ($web3Store.web3 && $web3Store.web3.utils.isAddress(user.uid)) {
-          userStore.updateAccountType("translator");
-          accountDB = "translators";
-          // check if current address matches registered address
-          if (
-            user.uid.toLowerCase() !== $web3Store.currentAddress.toLowerCase()
-          ) {
-            // signs out user
-            await firebase.auth().signOut();
-            userStore.reset();
-            userStore.connectedUser(false);
-            userStore.updateBalance(undefined);
-            // goes back to main page
-            push("/");
-          } else {
-            userStore.connectedUser(true);
-            // checks if user is already registered in smart contract
-            try {
-              // returns translator balance if any
-              const userBalance = await $web3Store.contractInstance.methods
-                .returnTranslator($web3Store.currentAddress.toLowerCase())
-                .call();
-              userStore.updateBalance(userBalance);
-            } catch (error) {
-              console.log(error);
-            }
-          }
-        } else {
-          userStore.updateAccountType("customer");
-          accountDB = "customers";
-          userStore.connectedUser(true);
-        }
-        // we fetch user's info
-        if (!$userStore.info) {
-          console.log("call to firebase");
-          // prepares function to fetch user's information
-          const db = firebase.firestore();
-          const doc = await db
-            .collection($userStore.accountType + "s")
-            .doc(user.uid)
-            .get();
-          if (doc.exists) {
-            userStore.updateAccountInfo({ ...doc.data(), uid: user.uid });
-          }
-        }
-      } else {
-        console.log("user not connected");
-        userStore.connectedUser(false);
-        // goes back to main page
-        push("/");
-      }
-    });
   });
 </script>
 
@@ -299,6 +300,9 @@
             try {
               await firebase.auth().signOut();
               userStore.connectedUser(false);
+              if ($userStore.accountType === 'customer') {
+                userStore.updateAccountType(undefined);
+              }
             } catch (error) {
               error;
             }
@@ -309,19 +313,19 @@
         {#if parseInt($userStore.balance) === 0}
           <div
             class="menu-item"
-            on:click={$web3Store.isMetamaskConnected ? openSignupModal : openWarningModal}>
+            on:click={$web3Store.isMetamaskConnected ? openSignupModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
             <a href="#">Sign Up</a>
           </div>
         {/if}
         <div
           class="menu-item"
-          on:click={$web3Store.isMetamaskConnected ? openLoginModal : openWarningModal}>
+          on:click={$web3Store.isMetamaskConnected ? openLoginModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
           <a href="#">Log In</a>
         </div>
       {/if}
     {/if}
     <div class="menu-item-address">
-      {#if !!parseInt($userStore.balance)}
+      {#if $userStore.accountType === 'translator'}
         <Dot type="success" />
       {:else if $userStore.accountType === 'customer'}
         <Dot type="info" />

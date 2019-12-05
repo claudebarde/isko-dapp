@@ -6,7 +6,7 @@ const store = () => {
     isMetamaskConnected: false,
     currentAddress: undefined,
     web3: undefined,
-    contractAddress: "0xd2e6C57A0c8E2b88344aC680841F864216df6748",
+    contractAddress: "0x3c2Bd387e3549BC6CC61cb4cBed6dea8892B9524",
     contractInstance: undefined
   });
 
@@ -23,7 +23,8 @@ const store = () => {
     setCurrentAddress: newAddress =>
       update(currentStore => ({
         ...currentStore,
-        currentAddress: newAddress.toLowerCase()
+        currentAddress:
+          newAddress === undefined ? undefined : newAddress.toLowerCase()
       })),
     setWeb3: instance =>
       update(currentStore => ({

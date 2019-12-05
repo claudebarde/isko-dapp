@@ -218,6 +218,8 @@
                 await firebase
                   .auth()
                   .signInWithEmailAndPassword(data.email, data.password);
+                userStore.connectedUser(true);
+                userStore.updateAccountType("translator");
                 // closes sign up modal
                 close();
               } catch (error) {
@@ -238,7 +240,7 @@
         const signupNewUser = firebase
           .functions()
           .httpsCallable("signupNewUser");
-        const customer = await signupNewUser({ ...data, signupTxHash: 0 });
+        const customer = await signupNewUser(data);
         if (customer.data.error) {
           // if error
           console.log(customer.data);
@@ -253,6 +255,8 @@
           await firebase
             .auth()
             .signInWithEmailAndPassword(data.email, data.password);
+          userStore.connectedUser(true);
+          userStore.updateAccountType("customer");
           // closes sign up modal
           close();
         }
