@@ -1,13 +1,14 @@
 <script>
   import Translator from "../Components/Accounts/Translator.svelte";
   import Customer from "../Components/Accounts/Customer.svelte";
-  import ConnectedServices from "../Components/ConnectedServices.svelte";
   import Navbar from "../Navbar/Navbar.svelte";
   import userStore from "../stores/user-store";
 </script>
 
 <style>
-  h1 {
+  h1,
+  h3,
+  p {
     text-align: center;
   }
 
@@ -49,6 +50,13 @@
     border-bottom: none;
   }
 
+  :global(.external-link) {
+    width: 1rem;
+    height: 1rem;
+    margin-left: 0.5rem;
+    cursor: pointer;
+  }
+
   @media (max-width: 1024px) {
     :global(.account-container) {
       width: 95%;
@@ -60,17 +68,20 @@
   }
 </style>
 
-<Navbar />
 <main>
   <h1>Account page</h1>
+  <h3>
+    {$userStore.accountType ? $userStore.accountType
+          .slice(0, 1)
+          .toUpperCase() + $userStore.accountType.slice(1) : '...'}
+  </h3>
   {#if $userStore.accountType === undefined}
-    Loading account type...
+    <p>Loading account type...</p>
   {:else if $userStore.info === undefined}
-    Loading user info...
+    <p>Loading user information...</p>
   {:else if $userStore.accountType === 'translator'}
     <Translator />
   {:else}
     <Customer />
   {/if}
 </main>
-<ConnectedServices />

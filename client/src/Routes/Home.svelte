@@ -3,17 +3,15 @@
   import Navbar from "../Navbar/Navbar.svelte";
   import Alert from "../Components/Alert.svelte";
   import Button from "../Components/Button.svelte";
-  import ConnectedServices from "../Components/ConnectedServices.svelte";
   import LoginModal from "../Components/Modals/LoginModal.svelte";
   import SignupModal from "../Components/Modals/SignupModal.svelte";
   import WarningModal from "../Components/Modals/WarningModal.svelte";
   import { onMount } from "svelte";
+  import { fly } from "svelte/transition";
   import web3Store from "../stores/web3-store";
   import userStore from "../stores/user-store";
   import eventsStore from "../stores/events-store";
 
-  let isLoginModalOpen = false;
-  let isSignupModalOpen = false;
   let warningType = undefined;
 </script>
 
@@ -78,18 +76,18 @@
 </style>
 
 <!--<div>Icons made by <a href="https://www.flaticon.com/authors/prettycons" title="prettycons">prettycons</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a></div>-->
-{#if isLoginModalOpen}
-  <LoginModal on:close={event => (isLoginModalOpen = false)} />
+{#if $eventsStore.isLoginModalOpen}
+  <LoginModal on:close={eventsStore.toggleLoginModal} />
 {/if}
-{#if isSignupModalOpen && parseInt($userStore.balance) === 0 && $userStore.balance !== undefined}
-  <SignupModal on:close={event => (isSignupModalOpen = false)} />
+{#if $eventsStore.isSignupModalOpen && parseInt($userStore.balance) === 0 && $userStore.balance !== undefined}
+  <SignupModal on:close={eventsStore.toggleSignupModal} />
 {/if}
 {#if $eventsStore.isWarningModalOpen}
   <WarningModal type={warningType} size="small" />
 {/if}
-<Navbar
+<!--<Navbar
   on:openLogin={event => (isLoginModalOpen = true)}
-  on:openSignup={event => (isSignupModalOpen = true)} />
+  on:openSignup={event => (isSignupModalOpen = true)} />-->
 <main>
   {#if $web3Store.hasMetamask === false}
     <Alert
@@ -97,7 +95,7 @@
       text="Please install Metamask to continue"
       hasDot={true} />
   {/if}
-  <div class="presentation">
+  <div class="presentation" in:fly={{ x: -100, duration: 500 }}>
     <div class="text-card">
       <h1>Isko Eth</h1>
       <br />
@@ -110,7 +108,7 @@
         style="height: 16rem" />
     </div>
   </div>
-  <div class="presentation-reverse">
+  <div class="presentation-reverse" in:fly={{ x: 100, duration: 500 }}>
     <div class="text-card">
       <h1>Get your translation done!</h1>
       <br />
@@ -123,7 +121,7 @@
         style="height: 14rem" />
     </div>
   </div>
-  <div class="presentation">
+  <div class="presentation" in:fly={{ x: -100, duration: 500 }}>
     <div class="text-card">
       <h1>Become a translator!</h1>
       <br />
@@ -137,4 +135,3 @@
     </div>
   </div>
 </main>
-<ConnectedServices />

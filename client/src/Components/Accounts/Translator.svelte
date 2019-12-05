@@ -1,6 +1,7 @@
 <script>
   import moment from "moment";
   import langs from "langs";
+  import { fly } from "svelte/transition";
   import Navbar from "../../Navbar/Navbar.svelte";
   import web3Store from "../../stores/web3-store";
   import userStore from "../../stores/user-store";
@@ -24,13 +25,6 @@
 </script>
 
 <style>
-  .external-link {
-    width: 1rem;
-    height: 1rem;
-    margin-left: 0.5rem;
-    cursor: pointer;
-  }
-
   .withdraw-balance {
     display: flex;
     flex-direction: row;
@@ -52,7 +46,7 @@
 </style>
 
 {#if $userStore.info}
-  <div class="account-container">
+  <div class="account-container" in:fly={{ y: -100, duration: 500 }}>
     <div class="account-card">
       <div class="account-card__content">
         <div>Name</div>
@@ -178,7 +172,22 @@
         </div>
       </div>
     </div>
-    <div class="account-card">Update Info</div>
+    <div class="account-card">
+      <div class="account-card__content">
+        <div>Update email</div>
+        <div>
+          {$userStore.info.email}
+          <img src="images/edit.svg" alt="add" class="external-link" />
+        </div>
+      </div>
+      <div class="account-card__content">
+        <div>Update name</div>
+        <div>
+          {`${$userStore.info.firstname} ${$userStore.info.lastname}`}
+          <img src="images/edit.svg" alt="add" class="external-link" />
+        </div>
+      </div>
+    </div>
   </div>
 {:else}
   <div>Loading info</div>

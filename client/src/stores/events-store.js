@@ -43,7 +43,9 @@ const store = () => {
     },
     toastType: "metamaskLoading",
     isWarningModalOpen: false,
-    warningModalMessage: ""
+    warningModalMessage: "",
+    isLoginModalOpen: false,
+    isSignupModalOpen: false
   });
 
   return {
@@ -67,6 +69,18 @@ const store = () => {
         ...currentStore,
         isWarningModalOpen: !currentStore.isWarningModalOpen,
         warningModalMessage: msg
+      }));
+    },
+    toggleLoginModal: () => {
+      update(currentStore => ({
+        ...currentStore,
+        isLoginModalOpen: !currentStore.isLoginModalOpen
+      }));
+    },
+    toggleSignupModal: () => {
+      update(currentStore => ({
+        ...currentStore,
+        isSignupModalOpen: !currentStore.isSignupModalOpen
       }));
     }
   };

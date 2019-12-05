@@ -8,7 +8,7 @@
   import Tooltip from "../Components/Tooltip.svelte";
   import Dot from "../Components/Dot.svelte";
   import Toast from "../Components/Toast.svelte";
-  import { link, push } from "svelte-spa-router";
+  import { link, push, location } from "svelte-spa-router";
   import contractInterface from "../../../build/contracts/IskoEth.json";
   import { shortenHash } from "../utils/functions";
   import "firebase/firestore";
@@ -38,9 +38,9 @@
     userStore.reset();
     userStore.connectedUser(false);
     userStore.updateBalance(0);
+    web3Store.setCurrentAddress(undefined);
     if (accounts.length === 0) {
       web3Store.isMetamaskConnected(false);
-      web3Store.setCurrentAddress(undefined);
       setToastType("metamaskDisconnected");
       toggleToast(true);
     } else {
@@ -76,7 +76,7 @@
 
   // FIREBASE AUTH
   firebase.auth().onAuthStateChanged(async user => {
-    console.log(user);
+    //console.log(user);
     if (user !== null) {
       // checks if current address matches uid
       if (user.uid.toLowerCase() === $web3Store.currentAddress.toLowerCase()) {
@@ -94,7 +94,11 @@
               .doc(user.uid)
               .get();
             if (doc.exists) {
-              userStore.updateAccountInfo({ ...doc.data(), uid: user.uid });
+              userStore.updateAccountInfo({
+                ...doc.data(),
+                uid: user.uid,
+                email: user.email
+              });
             }
           }
         } else {
@@ -110,7 +114,11 @@
               .doc(user.uid)
               .get();
             if (doc.exists) {
-              userStore.updateAccountInfo({ ...doc.data(), uid: user.uid });
+              userStore.updateAccountInfo({
+                ...doc.data(),
+                uid: user.uid,
+                email: user.email
+              });
             }
           }
         }
@@ -127,7 +135,7 @@
       console.log("user not connected");
       userStore.connectedUser(false);
       // goes back to main page
-      push("/");
+      if (location !== "/") push("/");
     }
   });
 
@@ -313,13 +321,13 @@
         {#if parseInt($userStore.balance) === 0}
           <div
             class="menu-item"
-            on:click={$web3Store.isMetamaskConnected ? openSignupModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
+            on:click={$web3Store.isMetamaskConnected ? eventsStore.toggleSignupModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
             <a href="#">Sign Up</a>
           </div>
         {/if}
         <div
           class="menu-item"
-          on:click={$web3Store.isMetamaskConnected ? openLoginModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
+          on:click={$web3Store.isMetamaskConnected ? eventsStore.toggleLoginModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
           <a href="#">Log In</a>
         </div>
       {/if}
@@ -338,7 +346,7 @@
         on:mouseleave={() => (isUserTooltipOpen = false)}>
         {$web3Store.currentAddress === undefined ? '🚫' : $web3Store.currentAddress.slice(0, 6) + '...' + $web3Store.currentAddress.slice(-4)}
       </span>
-      {#if isUserTooltipOpen}
+      {#if isUserTooltipOpen && userStore.accountType === 'translator'}
         <Tooltip
           content={['Current balance:', `${$web3Store.web3.utils.fromWei($userStore.balance, 'ether')} ether`]}
           align="right" />

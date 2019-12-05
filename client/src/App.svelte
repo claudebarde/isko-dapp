@@ -4,6 +4,8 @@
   import Market from "./Routes/Market.svelte";
   import TranslationTool from "./Routes/TranslationTool.svelte";
   import Router from "svelte-spa-router";
+  import Navbar from "./Navbar/Navbar.svelte";
+  import ConnectedServices from "./Components/ConnectedServices.svelte";
 
   const routes = {
     "/": Home,
@@ -13,4 +15,6 @@
   };
 </script>
 
+<Navbar />
 <Router {routes} />
+<ConnectedServices />

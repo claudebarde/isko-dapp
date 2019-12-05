@@ -11,6 +11,7 @@
   let titleBg = "title-info";
   switch (type) {
     case "signup":
+    case "info-update":
       titleBg = "title-success";
       break;
     case "warning":
@@ -26,6 +27,8 @@
 <style>
   .backdrop {
     position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     z-index: 50;
@@ -35,6 +38,8 @@
 
   .transparent-backdrop {
     position: fixed;
+    top: 0;
+    left: 0;
     display: flex;
     justify-content: center;
     align-items: center;
