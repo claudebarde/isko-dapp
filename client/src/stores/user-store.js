@@ -4,21 +4,18 @@ const defaultStore = {
   isUserConnected: undefined,
   balance: undefined,
   accountType: undefined,
-  info: undefined
+  //info: undefined
   // TODO: INFO MUST BE SET TO UNDEFINED FOR PRODUCTION
-  /*info: {
-    creation: 1575209147646,
-    firstname: "Claude",
-    lastTranslation: 0,
-    lastname: "Barde",
-    numberOfTranslations: 0,
-    signupTxHash:
-      "0x01433d8aa5bcd7d96b20c009e35c42cec0210f7ddd41d160ee7364927bb6d44f",
-    withdrawals: [],
-    feedbacks: [],
-    languagePairs: [],
-    uid: "0x8cf5ecb5d4cbc8c9fb81fc5c55353e2918070053"
-  }*/
+  info: {
+    creation: 1575533331523,
+    firstname: "Mia",
+    jobs: [],
+    lastJob: 0,
+    lastname: "Banana",
+    totalPaid: 0,
+    uid: "0xfd09817ea0f037b7640a7d2abc1092fe8f8c71f9",
+    email: "mia@test.com"
+  }
 };
 
 const store = () => {

@@ -2,10 +2,10 @@
   import moment from "moment";
   import langs from "langs";
   import { fly } from "svelte/transition";
-  import Navbar from "../../Navbar/Navbar.svelte";
-  import web3Store from "../../stores/web3-store";
-  import userStore from "../../stores/user-store";
-  import { shortenHash } from "../../utils/functions";
+  import Navbar from "../../../Navbar/Navbar.svelte";
+  import web3Store from "../../../stores/web3-store";
+  import userStore from "../../../stores/user-store";
+  import { shortenHash } from "../../../utils/functions";
 
   let langPairFrom = undefined;
   let langPairTo = undefined;

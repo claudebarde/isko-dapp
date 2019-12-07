@@ -64,7 +64,7 @@
   }
 </style>
 
-<Modal on:close={close} size="small">
+<Modal on:close={close} size="small" type="info">
   <span slot="title">Log in to your account</span>
   <div slot="body">
     <div class="form-input">

@@ -3,6 +3,7 @@
   import Account from "./Routes/Account.svelte";
   import Market from "./Routes/Market.svelte";
   import TranslationTool from "./Routes/TranslationTool.svelte";
+  import CreateNewJob from "./Routes/CreateNewJob.svelte";
   import Router from "svelte-spa-router";
   import Navbar from "./Navbar/Navbar.svelte";
   import ConnectedServices from "./Components/ConnectedServices.svelte";
@@ -11,7 +12,8 @@
     "/": Home,
     "/account": Account,
     "/market": Market,
-    "/translate": TranslationTool
+    "/translate": TranslationTool,
+    "/order": CreateNewJob
   };
 </script>
 

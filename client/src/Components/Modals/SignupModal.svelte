@@ -411,7 +411,7 @@
 </style>
 
 <!-- class={`${translator ? '-mb-px' : ''} mr-1 w-1/2 text-center`} -->
-<Modal on:close={close} type="signup" size="normal">
+<Modal on:close={close} type="success" size="normal">
   <span slot="title">Sign up</span>
   <div slot="body">
     <ul class="navigation">

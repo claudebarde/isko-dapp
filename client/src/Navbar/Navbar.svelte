@@ -79,7 +79,10 @@
     //console.log(user);
     if (user !== null) {
       // checks if current address matches uid
-      if (user.uid.toLowerCase() === $web3Store.currentAddress.toLowerCase()) {
+      if (
+        $web3Store.currentAddress &&
+        user.uid.toLowerCase() === $web3Store.currentAddress.toLowerCase()
+      ) {
         userStore.connectedUser(true);
         if ($userStore.balance > 0) {
           // user is registered as a translator
@@ -242,13 +245,16 @@
     margin-right: 2rem;
   }
 
-  .navbar a {
+  .navbar a,
+  .navbar span {
     padding: 0px 8px;
     color: #edf2f7;
     text-decoration: none;
+    cursor: pointer;
   }
 
-  .navbar a:hover {
+  .navbar a:hover,
+  .navbar span:hover {
     color: white;
   }
 
@@ -322,13 +328,13 @@
           <div
             class="menu-item"
             on:click={$web3Store.isMetamaskConnected ? eventsStore.toggleSignupModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
-            <a href="#">Sign Up</a>
+            <span>Sign Up</span>
           </div>
         {/if}
         <div
           class="menu-item"
           on:click={$web3Store.isMetamaskConnected ? eventsStore.toggleLoginModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
-          <a href="#">Log In</a>
+          <span>Log In</span>
         </div>
       {/if}
     {/if}

@@ -3,31 +3,39 @@
   import firebase from "firebase";
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
-  import userStore from "../../stores/user-store.js";
-  import web3Store from "../../stores/web3-store.js";
-  import { shortenHash } from "../../utils/functions";
-  import Modal from "../Modal.svelte";
-  import Button from "../Button.svelte";
+  import { push } from "svelte-spa-router";
+  import userStore from "../../../stores/user-store.js";
+  import web3Store from "../../../stores/web3-store.js";
+  import { shortenHash } from "../../../utils/functions";
+  import Modal from "../../Modal.svelte";
+  import Button from "../../Button.svelte";
 
   let isUpdateModalOpen = false;
-  let willUpdateName = false;
   let currentBalance = "...";
 
   let newFirstname = $userStore.info.firstname;
   let newLastname = $userStore.info.lastname;
   let newEmail = $userStore.info.email;
+  let updateButtonType = "success";
+  let updateButtonText = "Save";
 
   const updateName = () => {
+    updateButtonType = "success";
+    updateButtonText = "Save";
     isUpdateModalOpen = true;
-    willUpdateName = true;
   };
 
-  const closeModal = () => {
+  const closeUpdate = () => {
     isUpdateModalOpen = false;
-    willUpdateName = false;
+  };
+
+  const closeCreateNewJob = () => {
+    isCreateJobModalOpen = false;
   };
 
   const saveUpdate = async () => {
+    updateButtonType = "loading";
+    updateButtonText = "Saving...";
     const updateUserInfo = firebase.functions().httpsCallable("updateUserInfo");
     // generates unique id token
     const idToken = await firebase.auth().currentUser.getIdToken(true);
@@ -35,9 +43,33 @@
     const result = await updateUserInfo({
       firstname: newFirstname,
       lastname: newLastname,
-      accountDB: $userStore.accountType,
+      accountDB: $userStore.accountType + "s",
       idToken
     });
+    if (result.data === true) {
+      // update worked
+      userStore.updateAccountInfo({
+        ...$userStore.info,
+        firstname: newFirstname,
+        lastname: newLastname
+      });
+      updateButtonType = "disabled";
+      updateButtonText = "Saved!";
+      setTimeout(() => closeUpdate(), 500);
+    } else if (result.data === null) {
+      // wrong account type provided
+      closeModal();
+      eventsStore.toggleWarningModal(
+        "An error has occurred, please try again later."
+      );
+    } else if (result.data.error) {
+      // error
+      console.log(result.data.error);
+      closeUpdate();
+      eventsStore.toggleWarningModal(
+        "An error has occurred, please try again later."
+      );
+    }
   };
 
   onMount(async () => {
@@ -68,6 +100,7 @@
 
   .input-with-button input {
     width: 28%;
+    margin-right: 3px;
   }
 </style>
 
@@ -111,7 +144,14 @@
         <div>{$userStore.info.totalPaid}</div>
       </div>
     </div>
-    <div class="account-card">Other info</div>
+    <div class="account-card">
+      <div class="account-card__content">
+        <div>Create new job</div>
+        <div>
+          <Button type="success" text="Start" on:click={() => push('/order')} />
+        </div>
+      </div>
+    </div>
     <div class="account-card">
       <div class="account-card__content">
         <div>Update name</div>
@@ -127,17 +167,20 @@
     </div>
   </div>
   {#if isUpdateModalOpen}
-    <Modal type="info-update" size="small" on:close={closeModal}>
+    <Modal type="success" size="small" on:close={closeUpdate}>
       <div slot="title">Update Information</div>
       <div slot="body">
-        {#if willUpdateName}
-          <h3>Update your name</h3>
-          <div class="input-with-button">
+        <h3>Update your name</h3>
+        <div class="input-with-button">
+          <div>
             <input type="text" bind:value={newFirstname} />
             <input type="text" bind:value={newLastname} />
-            <Button type="success" text="Update" on:click={saveUpdate} />
           </div>
-        {/if}
+          <Button
+            type={updateButtonType}
+            text={updateButtonText}
+            on:click={saveUpdate} />
+        </div>
       </div>
     </Modal>
   {/if}

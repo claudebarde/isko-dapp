@@ -8,16 +8,6 @@
   const dispatch = createEventDispatcher();
 
   const fadeDuration = 200;
-  let titleBg = "title-info";
-  switch (type) {
-    case "signup":
-    case "info-update":
-      titleBg = "title-success";
-      break;
-    case "warning":
-      titleBg = "title-warning";
-      break;
-  }
 
   const close = () => {
     dispatch("close", true);
@@ -83,15 +73,15 @@
     border-top-right-radius: 0.5rem;
   }
 
-  .title-info {
+  .info {
     background-color: #4299e1;
   }
 
-  .title-success {
+  .success {
     background-color: #48bb78;
   }
 
-  .title-warning {
+  .warning {
     background-color: #ed8936;
   }
 
@@ -113,7 +103,7 @@
   out:fade={{ duration: fadeDuration }}>
   <div class={`modal ${size === 'small' ? 'small-modal' : 'large-modal'}`}>
     <img src="images/x.svg" alt="close" class="modal__close" on:click={close} />
-    <p class={`title ${titleBg}`}>
+    <p class={`title ${type}`}>
       <slot name="title" />
     </p>
     <div class="body">

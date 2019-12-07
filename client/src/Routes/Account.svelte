@@ -1,6 +1,6 @@
 <script>
-  import Translator from "../Components/Accounts/Translator.svelte";
-  import Customer from "../Components/Accounts/Customer.svelte";
+  import Translator from "../Components/Accounts/Translator/Translator.svelte";
+  import Customer from "../Components/Accounts/Customer/Customer.svelte";
   import Navbar from "../Navbar/Navbar.svelte";
   import userStore from "../stores/user-store";
 </script>
@@ -44,9 +44,10 @@
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    align-items: center;
   }
 
-  :global(.account-card :last-child) {
+  :global(.account-card div:last-child) {
     border-bottom: none;
   }
 
