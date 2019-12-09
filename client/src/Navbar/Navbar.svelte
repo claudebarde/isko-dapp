@@ -78,6 +78,7 @@
   firebase.auth().onAuthStateChanged(async user => {
     //console.log(user);
     if (user !== null) {
+      //console.log(await firebase.auth().currentUser.getIdToken(true));
       // checks if current address matches uid
       if (
         $web3Store.currentAddress &&

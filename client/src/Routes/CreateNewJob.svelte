@@ -1,10 +1,12 @@
 <script>
   import langs from "langs";
   import { push } from "svelte-spa-router";
+  import firebase from "firebase";
   import Navbar from "../Navbar/Navbar.svelte";
   import web3Store from "../stores/web3-store";
   import userStore from "../stores/user-store";
   import Button from "../Components/Button.svelte";
+  import Modal from "../Components/Modal.svelte";
   import { createEventDispatcher, onMount } from "svelte";
   import { slide } from "svelte/transition";
 
@@ -27,8 +29,14 @@
     type: undefined,
     name: "Choose a file"
   };
-  let textPrice = 0;
-  let filePrice = 0;
+  let initialFee = 0; // minimum fee for translation
+  let textPrice = initialFee;
+  let filePrice = initialFee;
+  let validationModal = false;
+  let savedToTheBlockchain = null;
+  let savedToTheAccount = null;
+  let newBlocksSubscription = undefined;
+  let txFailed = false;
 
   const validateSize = event => {
     const file = event.target.files[0];
@@ -44,6 +52,16 @@
       }
 
       selectedFile = { size: fileSize, type: fileType, name: chosenFileName };
+      const reader = new FileReader();
+      // file reading finished successfully
+      reader.addEventListener("load", function(e) {
+        var text = e.target.result;
+        // contents of the file
+        //console.log(text);
+        textInput = text;
+      });
+      // read as text file
+      reader.readAsText(file);
     }
   };
 
@@ -59,7 +77,8 @@
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           "application/vnd.ms-excel",
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "application/pdf"
+          "application/pdf",
+          "text/csv"
         ].includes(selectedFile.type)
       ) {
         wordsPerFile = selectedFile.size / 160;
@@ -83,6 +102,7 @@
           )
         : undefined;
       filePrice =
+        initialFee +
         wordsPerFile * $web3Store.web3.utils.fromWei(feePerWord, "ether");
       filePrice = Math.round(filePrice * 10000) / 10000;
     } else if (supportType === "text") {
@@ -106,9 +126,13 @@
         .trim()
         .split(" ")
         .filter(el => el).length;
-      textPrice = !!wordsPerText
-        ? wordsPerText * $web3Store.web3.utils.fromWei(feePerWord, "ether")
-        : 0;
+      if (wordsPerText > 0) {
+        textPrice =
+          wordsPerText * $web3Store.web3.utils.fromWei(feePerWord, "ether") +
+          initialFee;
+      } else {
+        textPrice = initialFee;
+      }
       textPrice = Math.round(textPrice * 10000) / 10000;
     }
   }
@@ -136,24 +160,132 @@
     saveButtonActive = false;
   }
 
+  // unsubscribes the subscription to new block headers
+  const newBlockUnsubscribe = () => {
+    newBlocksSubscription.unsubscribe(function(error, success) {
+      if (success) {
+        console.log("Successfully unsubscribed!");
+      } else {
+        console.log(error);
+      }
+    });
+  };
+
+  // listens to tx failure to unsuscribe from new block header
+  $: if (txFailed) newBlockUnsubscribe();
+
   // post new job
-  const validateJob = () => {
-    const { web3 } = $web3Store;
-    const data = {
+  const validateJob = async () => {
+    const {
+      web3,
+      currentAddress,
+      contractAddress,
+      contractInstance
+    } = $web3Store;
+    let data = {
       jobType,
       supportType,
       price:
         supportType === "text"
-          ? web3.utils.toWei(textPrice.toString(), "ether")
-          : web3.utils.toWei(filePrice.toString(), "ether"),
+          ? parseInt(web3.utils.toWei(textPrice.toString(), "ether"))
+          : parseInt(web3.utils.toWei(filePrice.toString(), "ether")),
       content: supportType === "text" ? textInput : selectedFile,
       fromLang,
       toLang,
       duedate,
-      comments,
+      comments: !!comments
+        ? [{ from: "customer", text: comments, timestamp: Date.now() }]
+        : [],
       noAutoTranslation
     };
-    console.log(data);
+    savedToTheBlockchain = false; // display message
+    validationModal = true; // open modal
+    // creates unique id
+    let jobID = web3.utils.sha3(textInput);
+
+    // generates unique id token
+    const idToken = await firebase.auth().currentUser.getIdToken(true);
+    data = { ...data, jobID, txHash: "0x123456789", idToken };
+    // saves job to database
+    const saveNewJob = firebase.functions().httpsCallable("saveNewJob");
+    const result = await saveNewJob(data);
+    if (result.data == true) {
+      // job saved
+    } else {
+      // error
+    }
+
+    /*// prepares transaction parameters
+    let tx_builder = contractInstance.methods.addNewJob(
+      currentAddress.toLowerCase(),
+      jobID
+    );
+    let encoded_tx = tx_builder.encodeABI();
+    let txObject = [
+      {
+        data: encoded_tx,
+        from: currentAddress.toLowerCase(),
+        to: contractAddress,
+        value: web3.utils.numberToHex(data.price)
+      }
+    ];
+    console.log(jobID, txObject);
+    // subscribes to new block creation to confirm account creation
+    let txHash;
+    newBlocksSubscription = web3.eth
+      .subscribe("newBlockHeaders", (error, result) => {
+        if (error) {
+          console.log(error);
+          txFailed = true;
+          return;
+        }
+      })
+      .on("connected", subscriptionId => {
+        try {
+          ethereum.sendAsync(
+            {
+              method: "eth_sendTransaction",
+              params: txObject,
+              from: $web3Store.currentAddress.toLowerCase()
+            },
+            (err, receipt) => {
+              if (err) {
+                console.log(err);
+                txFailed = true;
+                return;
+              }
+
+              if (receipt.result) {
+                txHash = receipt.result;
+                console.log("tx hash:", txHash);
+              } else {
+                txFailed = true;
+                return;
+              }
+            }
+          );
+        } catch (error) {
+          console.log(error);
+          txFailed = true;
+        }
+      })
+      .on("data", async blockHeader => {
+        const blockHash = blockHeader.hash;
+        // fetches block
+        const block = await web3.eth.getBlock(blockHash);
+        // gets the transactions from block
+        const { transactions } = block;
+        if (transactions.includes(txHash)) {
+          console.log("Transaction included!:", { ...data, txHash, jobID });
+          savedToTheBlockchain = true;
+          savedToTheAccount = false;
+          newBlockUnsubscribe();
+        }
+      })
+      .on("error", error => {
+        console.log(error);
+        txFailed = true;
+      });*/
   };
 
   onMount(async () => {
@@ -162,6 +294,8 @@
     );
     const ethJson = await ethData.json();
     ethPrice = ethJson[0].current_price;
+    const fee = await $web3Store.contractInstance.methods.fee().call();
+    initialFee = parseFloat($web3Store.web3.utils.fromWei(fee, "ether"));
   });
 </script>
 
@@ -243,8 +377,40 @@
     justify-content: flex-end;
     margin-top: 40px;
   }
+
+  .modal-body__content {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    align-items: center;
+  }
 </style>
 
+{#if validationModal}
+  <Modal type="info" size="small">
+    <div slot="title">New Job Creation</div>
+    <div slot="body">
+      {#if savedToTheBlockchain}
+        <p>1- Your order is successfully saved in the blockchain!</p>
+      {/if}
+      {#if savedToTheAccount}
+        <p>1- Your order is successfully saved in your account!</p>
+      {/if}
+      {#if savedToTheBlockchain === false}
+        <div class="modal-body__content">
+          <p>1- Saving your order to the blockchain</p>
+          <div class="dot-pulse" />
+        </div>
+      {/if}
+      {#if savedToTheAccount === false}
+        <div class="modal-body__content">
+          <p>2- Saving your order to your account</p>
+          <div class="dot-pulse" />
+        </div>
+      {/if}
+    </div>
+  </Modal>
+{/if}
 <main>
   <div class="container">
     <h1>Create a new job</h1>
@@ -274,6 +440,7 @@
           id="checkbox-proofreading"
           checked={jobType === 'proofreading'}
           on:change={() => {
+            console.log(jobType);
             if (jobType === 'proofreading') {
               jobType = 'translation';
             } else {
@@ -296,8 +463,10 @@
           checked={supportType === 'text'}
           on:change={() => {
             if (supportType === 'text') {
+              selectedFile = { size: undefined, type: undefined, name: 'Choose a file' };
               supportType = 'file';
             } else {
+              textInput = '';
               supportType = 'text';
             }
           }} />
@@ -310,8 +479,10 @@
           checked={supportType === 'file'}
           on:change={() => {
             if (supportType === 'file') {
+              textInput = '';
               supportType = 'text';
             } else {
+              selectedFile = { size: undefined, type: undefined, name: 'Choose a file' };
               supportType = 'file';
             }
           }} />
