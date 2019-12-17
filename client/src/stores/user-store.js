@@ -3,10 +3,10 @@ import { writable } from "svelte/store";
 const defaultStore = {
   isUserConnected: undefined,
   balance: undefined,
-  accountType: undefined,
+  accountType: undefined
   //info: undefined
   // TODO: INFO MUST BE SET TO UNDEFINED FOR PRODUCTION
-  info: {
+  /*info: {
     creation: 1575533331523,
     firstname: "Mia",
     jobs: [],
@@ -15,7 +15,7 @@ const defaultStore = {
     totalPaid: 0,
     uid: "0xfd09817ea0f037b7640a7d2abc1092fe8f8c71f9",
     email: "mia@test.com"
-  }
+  }*/
 };
 
 const store = () => {

@@ -5,6 +5,7 @@
   import Navbar from "../Navbar/Navbar.svelte";
   import web3Store from "../stores/web3-store";
   import userStore from "../stores/user-store";
+  import eventsStore from "../stores/events-store";
   import Button from "../Components/Button.svelte";
   import Modal from "../Components/Modal.svelte";
   import { createEventDispatcher, onMount } from "svelte";
@@ -32,6 +33,9 @@
   let initialFee = 0; // minimum fee for translation
   let textPrice = initialFee;
   let filePrice = initialFee;
+  let textInputSizeError = false;
+  let insufficientFunds = false;
+  let reviewJob = true;
   let validationModal = false;
   let savedToTheBlockchain = null;
   let savedToTheAccount = null;
@@ -40,8 +44,9 @@
 
   const validateSize = event => {
     const file = event.target.files[0];
-    if (file && file.size / 1024 / 1024 <= 2) {
-      // not more than 2 MB
+    if (file && file.size / 1024 / 1024 <= 1) {
+      console.log(file);
+      // not more than 1 MB
       const fileSize = file.size; // in bytes
       const fileType = file.type;
       let chosenFileName = file.name;
@@ -51,90 +56,86 @@
         chosenFileName = chosenFileName.slice(0, 15) + "(...)." + extension;
       }
 
-      selectedFile = { size: fileSize, type: fileType, name: chosenFileName };
+      selectedFile = {
+        size: fileSize,
+        type: fileType,
+        name: chosenFileName,
+        file
+      };
       const reader = new FileReader();
       // file reading finished successfully
-      reader.addEventListener("load", function(e) {
-        var text = e.target.result;
+      reader.addEventListener("load", event => {
+        const text = event.target.result;
         // contents of the file
         //console.log(text);
         textInput = text;
       });
       // read as text file
       reader.readAsText(file);
+    } else {
+      console.log("File is over 1 MB");
     }
   };
 
   // watches change in job type to adapt price for file translation
   $: if (jobType || noAutoTranslation || selectedFile || textInput) {
     if (supportType === "file" && selectedFile.type) {
-      let feeInCents = 0;
-      // files that are .doc or .xls have more formatting
-      let wordsPerFile = 0;
-      if (
-        [
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/vnd.ms-excel",
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "application/pdf",
-          "text/csv"
-        ].includes(selectedFile.type)
-      ) {
-        wordsPerFile = selectedFile.size / 160;
-      } else {
-        wordsPerFile = selectedFile.size / 10;
-      }
-      // calculates price
-      if (jobType === "translation") {
-        if (noAutoTranslation) {
-          feeInCents = 0.06;
-        } else {
-          feeInCents = 0.05;
-        }
-      } else if (jobType === "proofreading") {
-        feeInCents = 0.03;
-      }
-      const feePerWord = ethPrice
-        ? $web3Store.web3.utils.toWei(
-            (feeInCents / ethPrice).toFixed(6),
-            "ether"
-          )
-        : undefined;
-      filePrice =
-        initialFee +
-        wordsPerFile * $web3Store.web3.utils.fromWei(feePerWord, "ether");
+      const price = selectedFile.size * 0.0004;
+      filePrice = price / ethPrice;
       filePrice = Math.round(filePrice * 10000) / 10000;
     } else if (supportType === "text") {
-      let feeInCents = 0;
-      if (jobType === "translation") {
-        if (noAutoTranslation) {
-          feeInCents = 0.06;
-        } else {
-          feeInCents = 0.05;
+      const sizeInBytes = new Blob([textInput]).size;
+      // not more than 60 kB
+      if (sizeInBytes / 1024 / 1024 <= 0.06) {
+        textInputSizeError = false;
+        let feeInCents = 0;
+        if (jobType === "translation") {
+          if (noAutoTranslation) {
+            feeInCents = 0.06;
+          } else {
+            feeInCents = 0.05;
+          }
+        } else if (jobType === "proofreading") {
+          feeInCents = 0.03;
         }
-      } else if (jobType === "proofreading") {
-        feeInCents = 0.03;
-      }
-      const feePerWord = ethPrice
-        ? $web3Store.web3.utils.toWei(
-            (feeInCents / ethPrice).toFixed(6),
-            "ether"
-          )
-        : undefined;
-      const wordsPerText = textInput
-        .trim()
-        .split(" ")
-        .filter(el => el).length;
-      if (wordsPerText > 0) {
-        textPrice =
-          wordsPerText * $web3Store.web3.utils.fromWei(feePerWord, "ether") +
-          initialFee;
+        const feePerWord = ethPrice
+          ? $web3Store.web3.utils.toWei(
+              (feeInCents / ethPrice).toFixed(6),
+              "ether"
+            )
+          : undefined;
+        const wordsPerText = textInput
+          .trim()
+          .split(" ")
+          .filter(el => el).length;
+        if (wordsPerText > 0) {
+          textPrice =
+            wordsPerText * $web3Store.web3.utils.fromWei(feePerWord, "ether") +
+            initialFee;
+        } else {
+          textPrice = initialFee;
+        }
+        textPrice = Math.round(textPrice * 10000) / 10000;
       } else {
-        textPrice = initialFee;
+        textInputSizeError = true;
       }
-      textPrice = Math.round(textPrice * 10000) / 10000;
     }
+    // checks if user has enough funds
+    const price = supportType === "text" ? textPrice : filePrice;
+    (async () => {
+      if ($web3Store.web3 && $web3Store.currentAddress) {
+        // fetches current balance
+        let balance = 0;
+        balance = await $web3Store.web3.eth.getBalance(
+          $web3Store.currentAddress
+        );
+        if (balance <= price) {
+          insufficientFunds = true;
+        } else {
+          insufficientFunds = false;
+        }
+      }
+    })();
   }
 
   // activate save button when conditions are fulfilled
@@ -146,7 +147,9 @@
     fromLang !== "default" &&
     toLang &&
     toLang !== "default" &&
-    duedate
+    duedate &&
+    textInputSizeError === false &&
+    insufficientFunds === false
   ) {
     if (
       (supportType === "text" && !!textInput.trim()) ||
@@ -164,7 +167,7 @@
   const newBlockUnsubscribe = () => {
     newBlocksSubscription.unsubscribe(function(error, success) {
       if (success) {
-        console.log("Successfully unsubscribed!");
+        //console.log("Successfully unsubscribed!");
       } else {
         console.log(error);
       }
@@ -172,10 +175,28 @@
   };
 
   // listens to tx failure to unsuscribe from new block header
-  $: if (txFailed) newBlockUnsubscribe();
+  $: if (txFailed) {
+    newBlockUnsubscribe();
+    validationModal = false;
+    eventsStore.toggleWarningModal(
+      `Your transaction could not be processed. Please try again later.`
+    );
+  }
 
   // post new job
   const validateJob = async () => {
+    // checks if user is connected to main network
+    if (
+      parseInt(ethereum.networkVersion) !== 1 &&
+      process.env.NODE_ENV !== "development"
+    ) {
+      validationModal = false;
+      eventsStore.toggleWarningModal(
+        "You must be connected to Ethereum main network to proceed!"
+      );
+      return;
+    }
+
     const {
       web3,
       currentAddress,
@@ -189,7 +210,7 @@
         supportType === "text"
           ? parseInt(web3.utils.toWei(textPrice.toString(), "ether"))
           : parseInt(web3.utils.toWei(filePrice.toString(), "ether")),
-      content: supportType === "text" ? textInput : selectedFile,
+      content: supportType === "text" ? textInput : null,
       fromLang,
       toLang,
       duedate,
@@ -199,23 +220,10 @@
       noAutoTranslation
     };
     savedToTheBlockchain = false; // display message
-    validationModal = true; // open modal
+    reviewJob = false; // display progression
     // creates unique id
     let jobID = web3.utils.sha3(textInput);
-
-    // generates unique id token
-    const idToken = await firebase.auth().currentUser.getIdToken(true);
-    data = { ...data, jobID, txHash: "0x123456789", idToken };
-    // saves job to database
-    const saveNewJob = firebase.functions().httpsCallable("saveNewJob");
-    const result = await saveNewJob(data);
-    if (result.data == true) {
-      // job saved
-    } else {
-      // error
-    }
-
-    /*// prepares transaction parameters
+    // prepares transaction parameters
     let tx_builder = contractInstance.methods.addNewJob(
       currentAddress.toLowerCase(),
       jobID
@@ -229,7 +237,7 @@
         value: web3.utils.numberToHex(data.price)
       }
     ];
-    console.log(jobID, txObject);
+    //console.log(jobID, txObject);
     // subscribes to new block creation to confirm account creation
     let txHash;
     newBlocksSubscription = web3.eth
@@ -257,7 +265,7 @@
 
               if (receipt.result) {
                 txHash = receipt.result;
-                console.log("tx hash:", txHash);
+                //console.log("tx hash:", txHash);
               } else {
                 txFailed = true;
                 return;
@@ -280,12 +288,84 @@
           savedToTheBlockchain = true;
           savedToTheAccount = false;
           newBlockUnsubscribe();
+          try {
+            // generates unique id token
+            const idToken = await firebase.auth().currentUser.getIdToken(true);
+            if (supportType === "file") {
+              // uploads file first before saving job
+              // creates reference to storage
+              const storage = firebase.storage().ref();
+              // creates file reference
+              const ref = storage.child(
+                `${$userStore.info.uid}/${selectedFile.name}`
+              );
+              // uploads file
+              const snapshot = await ref.put(selectedFile.file);
+              //console.log(snapshot);
+              if (snapshot.state !== "success")
+                throw new Error("Couldn't upload the file!");
+              data = {
+                ...data,
+                content: {
+                  contentType: snapshot.metadata.contentType,
+                  fullPath: snapshot.metadata.fullPath,
+                  name: snapshot.metadata.name
+                }
+              };
+            }
+            data = { ...data, jobID, txHash, idToken };
+            // saves job to database
+            const saveNewJob = firebase.functions().httpsCallable("saveNewJob");
+            const result = await saveNewJob(data);
+            console.log(result);
+            if (result.data === true) {
+              // job saved
+              savedToTheAccount = true;
+              setTimeout(() => (validationModal = false), 1000);
+              // updates customer's info
+              let newBalance = await web3.eth.getBalance(
+                $web3Store.currentAddress
+              );
+              newBalance = newBalance.split(".");
+              newBalance =
+                newBalance.length > 1
+                  ? newBalance[0] + "." + newBalance[1].slice(0, 2)
+                  : newBalance[0];
+              userStore.updateAccountInfo({
+                ...$userStore.info,
+                totalPaid:
+                  parseInt($userStore.info.totalPaid) + parseInt(data.price),
+                lastJob: jobID,
+                jobs: [...$userStore.info.jobs, jobID],
+                balance: newBalance
+              });
+              // if everything is fine, we send customer back to their account page
+              push("/account");
+            } else {
+              // error
+              validationModal = false;
+              eventsStore.toggleWarningModal(
+                `An error has occurred. Please contact customer service with the following transaction number: ${txHash}`
+              );
+            }
+          } catch (error) {
+            console.log(error);
+            validationModal = false;
+            let msg = "";
+            if (!txHash) {
+              msg =
+                "Your order could not be saved on the blockchain.<br><br>Please try again later";
+            } else {
+              msg = `Your order could not be added to your account. Please refresh the page.<br><br>If the problem persists, please contact customer service with the following transaction number: ${txHash}`;
+            }
+            eventsStore.toggleWarningModal(msg);
+          }
         }
       })
       .on("error", error => {
         console.log(error);
         txFailed = true;
-      });*/
+      });
   };
 
   onMount(async () => {
@@ -334,7 +414,6 @@
     width: 70%;
   }
 
-  input[type="text"],
   textarea {
     border-radius: 0.25rem;
     padding: 0.5rem;
@@ -344,7 +423,6 @@
     resize: none;
   }
 
-  input[type="text"]:focus,
   textarea:focus {
     outline: none;
   }
@@ -384,29 +462,77 @@
     justify-content: space-evenly;
     align-items: center;
   }
+
+  .price {
+    text-align: right;
+  }
 </style>
 
 {#if validationModal}
   <Modal type="info" size="small">
     <div slot="title">New Job Creation</div>
     <div slot="body">
-      {#if savedToTheBlockchain}
-        <p>1- Your order is successfully saved in the blockchain!</p>
-      {/if}
-      {#if savedToTheAccount}
-        <p>1- Your order is successfully saved in your account!</p>
-      {/if}
-      {#if savedToTheBlockchain === false}
-        <div class="modal-body__content">
-          <p>1- Saving your order to the blockchain</p>
-          <div class="dot-pulse" />
+      {#if reviewJob}
+        <!-- Customer reviews new job -->
+        <div class="inputs">
+          <p>Type of job: {jobType}</p>
+          <p>
+            From {langs.where('3', fromLang).name} to {langs.where('3', toLang).name}
+          </p>
         </div>
-      {/if}
-      {#if savedToTheAccount === false}
-        <div class="modal-body__content">
-          <p>2- Saving your order to your account</p>
-          <div class="dot-pulse" />
+        <div class="inputs">
+          <p>Your comments:</p>
+          <p>{!!comments ? comments : '--'}</p>
         </div>
+        <div class="inputs">
+          <p>
+            Due in
+            {#if duedate === 60 * 60}
+              1 hour
+            {:else if duedate === 60 * 60 * 5}
+              5 hours
+            {:else if duedate === 60 * 60 * 12}
+              12 hours
+            {:else if duedate === 60 * 60 * 24}
+              24 hours
+            {:else if duedate === 60 * 60 * 24 * 2}
+              2 days
+            {:else if duedate === 60 * 60 * 24 * 4}
+              4 days
+            {:else if duedate === 60 * 60 * 24 * 7}1 week{/if}
+          </p>
+          <p>
+            Total Price: {supportType === 'text' ? textPrice : filePrice} ethers
+          </p>
+        </div>
+        <div class="footer">
+          <Button type="success" text="Order" on:click={validateJob} />
+        </div>
+      {:else}
+        <!-- New job has been approved -->
+        {#if savedToTheBlockchain}
+          <p>1- Your order is successfully saved in the blockchain!</p>
+        {/if}
+        {#if savedToTheAccount}
+          <p>2- Your order is successfully saved in your account!</p>
+        {/if}
+        {#if savedToTheBlockchain === false}
+          <div class="modal-body__content">
+            <p>
+              1- Saving your order to the blockchain, please don't leave or
+              refresh the page.
+              <br />
+              This may take a few minutes.
+            </p>
+            <div class="dot-pulse" />
+          </div>
+        {/if}
+        {#if savedToTheAccount === false}
+          <div class="modal-body__content">
+            <p>2- Saving your order to your account.</p>
+            <div class="dot-pulse" />
+          </div>
+        {/if}
       {/if}
     </div>
   </Modal>
@@ -440,7 +566,6 @@
           id="checkbox-proofreading"
           checked={jobType === 'proofreading'}
           on:change={() => {
-            console.log(jobType);
             if (jobType === 'proofreading') {
               jobType = 'translation';
             } else {
@@ -465,9 +590,11 @@
             if (supportType === 'text') {
               selectedFile = { size: undefined, type: undefined, name: 'Choose a file' };
               supportType = 'file';
+              filePrice = 0;
             } else {
               textInput = '';
               supportType = 'text';
+              textPrice = 0;
             }
           }} />
         <label for="checkbox-text" class="css-label med elegant">Text</label>
@@ -481,9 +608,11 @@
             if (supportType === 'file') {
               textInput = '';
               supportType = 'text';
+              textPrice = 0;
             } else {
               selectedFile = { size: undefined, type: undefined, name: 'Choose a file' };
               supportType = 'file';
+              filePrice = 0;
             }
           }} />
         <label for="checkbox-file" class="css-label med elegant">File</label>
@@ -496,21 +625,29 @@
           <textarea
             name="text-input"
             id="text-input"
-            rows="10"
+            rows="6"
             class="textarea-input"
             bind:value={textInput}
             on:input={event => (textInput = event.target.value)} />
         </div>
-        <div class="inputs with-border">
+        <p class={`note ${textInputSizeError ? 'warning-text' : ''}`}>
+          Maximum 60 kB
+        </p>
+        <div class="inputs with-border" style="margin-top:25px">
           <p>Price</p>
-          <div>
-            <input
-              type="text"
-              id="translation-price"
-              bind:value={textPrice}
-              size="10" />
-            <label for="translation-price">ether</label>
-          </div>
+          <p class:danger-text={insufficientFunds} class="price">
+            <span>{textPrice}</span>
+            <span>ethers</span>
+            <span>
+              ({`~$${Math.round(parseFloat(textPrice) * parseFloat(ethPrice) * 100) / 100}`})
+            </span>
+            {#if insufficientFunds}
+              <br />
+              <span style="font-size: 0.7rem">
+                You don't have enough ethers to create this job.
+              </span>
+            {/if}
+          </p>
         </div>
       </div>
     {:else if jobType && supportType === 'file'}
@@ -528,15 +665,20 @@
           </label>
         </div>
         <div class="inputs with-border">
-          <p>Price:</p>
-          <div>
-            <input
-              type="text"
-              id="file-price"
-              bind:value={filePrice}
-              size="10" />
-            <label for="file-price">ether</label>
-          </div>
+          <p>Price</p>
+          <p class:danger-text={insufficientFunds} class="price">
+            <span>{filePrice}</span>
+            <span>ethers</span>
+            <span>
+              ({`~$${Math.round(parseFloat(filePrice) * parseFloat(ethPrice) * 100) / 100}`})
+            </span>
+            {#if insufficientFunds}
+              <br />
+              <span style="font-size: 0.7rem">
+                You don't have enough ethers to create this job.
+              </span>
+            {/if}
+          </p>
         </div>
       </div>
     {/if}
@@ -607,9 +749,9 @@
       </p>
       <div class="footer">
         <Button
-          type={saveButtonActive ? 'success' : 'disabled'}
-          text="Order"
-          on:click={validateJob} />
+          type={saveButtonActive ? 'info' : 'disabled'}
+          text="Review"
+          on:click={() => (validationModal = true)} />
       </div>
     {/if}
   </div>

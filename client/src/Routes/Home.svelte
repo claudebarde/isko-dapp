@@ -5,7 +5,6 @@
   import Button from "../Components/Button.svelte";
   import LoginModal from "../Components/Modals/LoginModal.svelte";
   import SignupModal from "../Components/Modals/SignupModal.svelte";
-  import WarningModal from "../Components/Modals/WarningModal.svelte";
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
   import web3Store from "../stores/web3-store";
@@ -82,12 +81,6 @@
 {#if $eventsStore.isSignupModalOpen && parseInt($userStore.balance) === 0 && $userStore.balance !== undefined}
   <SignupModal on:close={eventsStore.toggleSignupModal} />
 {/if}
-{#if $eventsStore.isWarningModalOpen}
-  <WarningModal type={warningType} size="small" />
-{/if}
-<!--<Navbar
-  on:openLogin={event => (isLoginModalOpen = true)}
-  on:openSignup={event => (isSignupModalOpen = true)} />-->
 <main>
   {#if $web3Store.hasMetamask === false}
     <Alert

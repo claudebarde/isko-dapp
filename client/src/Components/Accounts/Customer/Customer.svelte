@@ -77,8 +77,12 @@
     const balance = await $web3Store.web3.eth.getBalance(
       $web3Store.currentAddress
     );
-    const balanceInEth = $web3Store.web3.utils.fromWei(balance, "ether");
-    currentBalance = Math.round(balanceInEth * 100) / 100;
+    let balanceInEth = $web3Store.web3.utils.fromWei(balance, "ether");
+    balanceInEth = balanceInEth.split(".");
+    currentBalance =
+      balanceInEth.length > 1
+        ? balanceInEth[0] + "." + balanceInEth[1].slice(0, 2)
+        : balanceInEth[0];
   });
 </script>
 
@@ -117,7 +121,7 @@
       </div>
       <div class="account-card__content">
         <div>Last Job</div>
-        <div>{$userStore.info.lastJob}</div>
+        <div>{shortenHash($userStore.info.lastJob)}</div>
       </div>
       <div class="account-card__content">
         <div>Payment History</div>
@@ -141,7 +145,10 @@
       </div>
       <div class="account-card__content">
         <div>Total amount paid</div>
-        <div>{$userStore.info.totalPaid}</div>
+        <div>
+          {$web3Store.web3.utils.fromWei($userStore.info.totalPaid.toString(), 'ether')}
+          ethers
+        </div>
       </div>
     </div>
     <div class="account-card">

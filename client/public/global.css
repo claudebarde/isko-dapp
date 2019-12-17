@@ -48,6 +48,10 @@ button:focus {
   color: #c05621;
 }
 
+.danger-text {
+  color: #c53030;
+}
+
 main {
   padding: 7rem 0.5rem 0.75rem 0.5rem;
 }

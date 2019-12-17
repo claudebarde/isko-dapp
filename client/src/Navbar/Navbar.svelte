@@ -8,6 +8,7 @@
   import Tooltip from "../Components/Tooltip.svelte";
   import Dot from "../Components/Dot.svelte";
   import Toast from "../Components/Toast.svelte";
+  import WarningModal from "../Components/Modals/WarningModal.svelte";
   import { link, push, location } from "svelte-spa-router";
   import contractInterface from "../../../build/contracts/IskoEth.json";
   import { shortenHash } from "../utils/functions";
@@ -196,6 +197,9 @@
             if (userBalance > 0) userStore.updateAccountType("translator");
           } catch (error) {
             console.log(error);
+            eventsStore.toggleWarningModal(
+              "There was a problem connecting to the smart contract.<br><br>Please try again later or contact the customer service."
+            );
           }
         } else {
           web3Store.isMetamaskConnected(false);
@@ -293,6 +297,9 @@
   }
 </style>
 
+{#if $eventsStore.isWarningModalOpen}
+  <WarningModal type="warning" size="small" />
+{/if}
 <nav class="navbar">
   <div class="navbar-logo">
     <a href="/" use:link>Isko Eth</a>
