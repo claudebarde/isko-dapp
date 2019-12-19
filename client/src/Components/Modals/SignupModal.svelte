@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher } from "svelte";
+  import langs from "langs";
   import web3Store from "../../stores/web3-store";
   import userStore from "../../stores/user-store";
   import eventsStore from "../../stores/events-store";
@@ -22,17 +23,22 @@
     firstname: undefined,
     lastname: undefined,
     email: undefined,
-    password: undefined
+    password: undefined,
+    fromLang: undefined,
+    toLang: undefined
   };
   $: checkInfo(info);
   let correctInfo = {
     correctFirstname: undefined,
     correctLastname: undefined,
     correctEmail: undefined,
-    correctPassword: null
+    correctPassword: null,
+    correctFromLang: false,
+    correctToLang: false
   };
   let buttonType = "disabled";
   let buttonText = "Create Account";
+  let insufficientFunds = false;
 
   const close = () => {
     dispatch("close", true);
@@ -72,12 +78,24 @@
     } else {
       correctInfo = { ...correctInfo, correctPassword: false };
     }
+    // language pair "from"
+    if (info.fromLang && info.fromLang !== "default") {
+      correctInfo = { ...correctInfo, correctFromLang: true };
+    } else {
+      correctInfo = { ...correctInfo, correctFromLang: false };
+    }
+    // language pair "to"
+    if (info.toLang && info.toLang !== "default") {
+      correctInfo = { ...correctInfo, correctToLang: true };
+    } else {
+      correctInfo = { ...correctInfo, correctToLang: false };
+    }
 
     const check = Object.keys(correctInfo)
       .map(key => correctInfo[key])
       .reduce((a, b) => a & b);
     // modify button type
-    if (!!check) {
+    if (!!check && !insufficientFunds) {
       buttonType = "success";
     } else {
       buttonType = "disabled";
@@ -271,14 +289,21 @@
   };
 
   onMount(async () => {
+    // checks ethereum price
+    const { web3, currentAddress } = $web3Store;
     const ethData = await fetch(
       "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum"
     );
     const ethJson = await ethData.json();
     ethPrice = ethJson[0].current_price;
-    signupFee = $web3Store.web3.utils.numberToHex(
-      $web3Store.web3.utils.toWei((1 / ethPrice).toFixed(4), "ether")
+    signupFee = web3.utils.numberToHex(
+      web3.utils.toWei((1 / ethPrice).toFixed(4), "ether")
     );
+    // checks if user has enough funds
+    const balance = await web3.eth.getBalance(currentAddress);
+    if (balance < signupFee) {
+      insufficientFunds = true;
+    }
   });
 </script>
 
@@ -389,6 +414,13 @@
     text-align: center;
   }
 
+  .selectLangPair {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
   @media (min-width: 640px) {
     .form-input {
       width: 100%;
@@ -477,17 +509,46 @@
             <p class="error-message">&nbsp;</p>
           {/if}
         </div>
+        <div class="selectLangPair">
+          <strong>Choose your main language pair</strong>
+          <select
+            name="from-lang"
+            id="from-lang"
+            on:change={event => (info = { ...info, fromLang: event.target.value })}>
+            <option value="default" selected="selected">Language</option>
+            {#each langs.all() as item}
+              <option value={item[3]}>{item.name}</option>
+            {/each}
+          </select>
+          <span>=></span>
+          <select
+            name="from-lang"
+            id="from-lang"
+            on:change={event => (info = { ...info, toLang: event.target.value })}>
+            <option value="default" selected="selected">Language</option>
+            {#each langs.all() as item}
+              <option value={item[3]}>{item.name}</option>
+            {/each}
+          </select>
+        </div>
         <div class="footer">
           {#if translator}
-            <p class="fee-warning warning-text">
-              {`A one time fee of ${(1 / ethPrice).toFixed(4)} ether will be added to your translator
+            {#if insufficientFunds}
+              <p class="fee-warning warning-text">
+                You don't have enough funds to sign up, please add some ether to
+                your account to register.
+              </p>
+            {:else}
+              <p class="fee-warning warning-text">
+                {`A one time fee of ${(1 / ethPrice).toFixed(4)} ether will be added to your translator
             account.`}
-              <br />
-              You can withdraw this money any time you want but
-              <br />
-              your account is considered as inactive if its total balance
-              reaches 0 wei.
-            </p>
+                <br />
+                You can withdraw this money any time you want but
+                <br />
+                your account is considered as inactive if its total balance
+                reaches 0 wei.
+              </p>
+            {/if}
           {/if}
           <Button text={buttonText} type={buttonType} on:click={validateForm} />
         </div>

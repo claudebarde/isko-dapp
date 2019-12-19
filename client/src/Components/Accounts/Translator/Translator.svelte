@@ -143,7 +143,7 @@
         </div>
       {/if}
       <div class="account-card__content">
-        <div>Add a language pair</div>
+        <div>Add a second language pair</div>
         <div>
           <p class="lang-pair-choice">
             From

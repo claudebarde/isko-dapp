@@ -9,6 +9,8 @@
   import Dot from "../Components/Dot.svelte";
   import Toast from "../Components/Toast.svelte";
   import WarningModal from "../Components/Modals/WarningModal.svelte";
+  import LoginModal from "../Components/Modals/LoginModal.svelte";
+  import SignupModal from "../Components/Modals/SignupModal.svelte";
   import { link, push, location } from "svelte-spa-router";
   import contractInterface from "../../../build/contracts/IskoEth.json";
   import { shortenHash } from "../utils/functions";
@@ -77,10 +79,11 @@
 
   // FIREBASE AUTH
   firebase.auth().onAuthStateChanged(async user => {
-    //console.log(user);
+    //console.log("change of auth state:", user);
     if (user !== null) {
       //console.log(await firebase.auth().currentUser.getIdToken(true));
       // checks if current address matches uid
+      console.log($web3Store.currentAddress, user.uid.toLowerCase());
       if (
         $web3Store.currentAddress &&
         user.uid.toLowerCase() === $web3Store.currentAddress.toLowerCase()
@@ -102,7 +105,11 @@
               userStore.updateAccountInfo({
                 ...doc.data(),
                 uid: user.uid,
-                email: user.email
+                email: user.email,
+                languagePairs: doc.data().languagePairs.map(pair => {
+                  const obj = pair.split("|");
+                  return { from: obj[0], to: obj[1] };
+                })
               });
             }
           }
@@ -299,6 +306,12 @@
 
 {#if $eventsStore.isWarningModalOpen}
   <WarningModal type="warning" size="small" />
+{/if}
+{#if $eventsStore.isLoginModalOpen}
+  <LoginModal on:close={eventsStore.toggleLoginModal} />
+{/if}
+{#if $eventsStore.isSignupModalOpen && parseInt($userStore.balance) === 0 && $userStore.balance !== undefined}
+  <SignupModal on:close={eventsStore.toggleSignupModal} />
 {/if}
 <nav class="navbar">
   <div class="navbar-logo">

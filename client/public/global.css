@@ -52,6 +52,10 @@ button:focus {
   color: #c53030;
 }
 
+.success-text {
+  color: #2f855a;
+}
+
 main {
   padding: 7rem 0.5rem 0.75rem 0.5rem;
 }

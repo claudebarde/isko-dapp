@@ -3,7 +3,8 @@ import { writable } from "svelte/store";
 const defaultStore = {
   isUserConnected: undefined,
   balance: undefined,
-  accountType: undefined
+  accountType: undefined,
+  info: undefined
   //info: undefined
   // TODO: INFO MUST BE SET TO UNDEFINED FOR PRODUCTION
   /*info: {

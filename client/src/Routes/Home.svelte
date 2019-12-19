@@ -3,8 +3,6 @@
   import Navbar from "../Navbar/Navbar.svelte";
   import Alert from "../Components/Alert.svelte";
   import Button from "../Components/Button.svelte";
-  import LoginModal from "../Components/Modals/LoginModal.svelte";
-  import SignupModal from "../Components/Modals/SignupModal.svelte";
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
   import web3Store from "../stores/web3-store";
@@ -75,12 +73,6 @@
 </style>
 
 <!--<div>Icons made by <a href="https://www.flaticon.com/authors/prettycons" title="prettycons">prettycons</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a></div>-->
-{#if $eventsStore.isLoginModalOpen}
-  <LoginModal on:close={eventsStore.toggleLoginModal} />
-{/if}
-{#if $eventsStore.isSignupModalOpen && parseInt($userStore.balance) === 0 && $userStore.balance !== undefined}
-  <SignupModal on:close={eventsStore.toggleSignupModal} />
-{/if}
 <main>
   {#if $web3Store.hasMetamask === false}
     <Alert
