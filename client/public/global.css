@@ -95,3 +95,17 @@ select:focus {
 select option {
   font-weight: normal;
 }
+
+textarea {
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+  border: solid 1px #cbd5e0;
+  font-size: 1rem;
+  resize: none;
+  color: #333;
+}
+
+textarea:focus {
+  outline: none;
+}

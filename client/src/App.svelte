@@ -12,7 +12,7 @@
     "/": Home,
     "/account": Account,
     "/market": Market,
-    "/translate": TranslationTool,
+    "/translate/:id?": TranslationTool,
     "/order": CreateNewJob
   };
 </script>

@@ -1,87 +1,28 @@
 <script>
-  import { fly } from "svelte/transition";
-  import { onMount, afterUpdate } from "svelte";
+  import { fly, slide } from "svelte/transition";
+  import { afterUpdate, onDestroy } from "svelte";
   import firebase from "firebase";
   import moment from "moment";
   import langs from "langs";
-  import { link } from "svelte-spa-router";
+  import { link, push } from "svelte-spa-router";
   import Navbar from "../Navbar/Navbar.svelte";
+  import Modal from "../Components/Modal.svelte";
   import web3Store from "../stores/web3-store";
   import eventsStore from "../stores/events-store";
   import userStore from "../stores/user-store";
-  import { shortenHash } from "../utils/functions";
+  import { shortenHash, fromWeiToEther } from "../utils/functions";
 
   let availableJobs = [];
   let noJobAvailable = false;
   let loadingMarketError = false;
   let jobsFetched = false;
-  let dataFromFirebase = [
-    {
-      id: "0x7272dd45949b64fcb07337d04c5d95dce5227a96e1e4509d61dd0c5227f3e280",
-      contentType: "Generic Content",
-      duedate: 172800,
-      fromLang: "eng",
-      jobType: "translation",
-      price: 59220000000000000,
-      supportType: "text",
-      timestamp: 1576663581527,
-      toLang: "fra",
-      txHash:
-        "0xaf1a64e8aeecae00fe40ec3ebb6dac82ea97d01093cfd9389b74e5ba1a647ac9"
-    },
-    {
-      id: "0x07e65249e43d9b06d683e8ef565b700fb204e90bfcf2cab0fca9c2d6b5ff1a17",
-      contentType: "Cryptocurrency",
-      duedate: 345600,
-      fromLang: "eng",
-      jobType: "translation",
-      price: 256230000000000000,
-      supportType: "file",
-      timestamp: 1576663662709,
-      toLang: "fra",
-      txHash:
-        "0x17d18f368fbc40360114d8642c29285af6e40f58ca4c3560f30be74b1eaa94d1"
-    },
-    {
-      id: "0x0b664cbe24333ce291993774cb83b9b25ca6edeea52c7e2565ea5660860926b8",
-      contentType: "IT, Technical",
-      duedate: 172800,
-      fromLang: "eng",
-      jobType: "translation",
-      price: 46170000000000000,
-      supportType: "text",
-      timestamp: 1576674634705,
-      toLang: "fra",
-      txHash:
-        "0x4d3dddf8e55d036ae17bf90be80d6936f74e6f9c98173fc2efeaa0e3939eb833"
-    },
-    {
-      id: "0x34564cbe24333ce291993774cb83b9b25ca6edeea52c7e2565ea5660860926b8",
-      contentType: "IT, Technical",
-      duedate: 172800,
-      fromLang: "eng",
-      jobType: "translation",
-      price: 46170000000000000,
-      supportType: "text",
-      timestamp: 1576674634705,
-      toLang: "fra",
-      txHash:
-        "0x4d3dddf8e55d036ae17bf90be80d6936f74e6f9c98173fc2efeaa0e3939eb833"
-    },
-    {
-      id: "0x78964cbe24333ce291993774cb83b9b25ca6edeea52c7e2565ea5660860926b8",
-      contentType: "IT, Technical",
-      duedate: 172800,
-      fromLang: "spa",
-      jobType: "translation",
-      price: 46170000000000000,
-      supportType: "text",
-      timestamp: 1576674634705,
-      toLang: "fra",
-      txHash:
-        "0x4d3dddf8e55d036ae17bf90be80d6936f74e6f9c98173fc2efeaa0e3939eb833"
-    }
-  ];
+  let showComments = false;
+  let unsuscribeToMarketUpdate = undefined;
+  let claimingJob = false;
+  let claimingJobError = false;
+  let claimingJobErrorMsg =
+    "<p>There was an error when claiming this job.</p><p>This can happen if the job is not available anymore or has been cancelled.</p>";
+  let claimingJobSuccess = false;
 
   const checkPriority = ({ duedate, timestamp }) => {
     const timeLeft =
@@ -98,31 +39,131 @@
     }
   };
 
+  const claimJob = async jobID => {
+    const {
+      currentAddress,
+      web3,
+      contractAddress,
+      contractInstance
+    } = $web3Store;
+    let txHash;
+    // opens modal
+    claimingJob = true;
+    // accepts job in smart contract
+    // prepares transaction parameters
+    let tx_builder = contractInstance.methods.acceptJob(jobID);
+    let encoded_tx = tx_builder.encodeABI();
+    let txObject = [
+      {
+        data: encoded_tx,
+        from: currentAddress.toLowerCase(),
+        to: contractAddress
+      }
+    ];
+    // sends transaction
+    try {
+      ethereum.sendAsync(
+        {
+          method: "eth_sendTransaction",
+          params: txObject,
+          from: currentAddress.toLowerCase()
+        },
+        async (err, receipt) => {
+          if (err) {
+            console.log(err);
+            claimingJobError = true;
+            return;
+          }
+
+          if (receipt.result) {
+            txHash = receipt.result;
+            // gets translator's token
+            const idToken = await firebase.auth().currentUser.getIdToken(true);
+            // sends jobID to backend for claim
+            const claimJob = firebase.functions().httpsCallable("claimJob");
+            try {
+              // claims job
+              const result = await claimJob({ jobID, idToken });
+              if (result.data.error === true) {
+                console.log("txHash:", txHash);
+                claimingJobError = true;
+                claimingJobSuccess = false;
+                if (result.data.msg) {
+                  claimingJobErrorMsg = result.data.msg;
+                } else {
+                  claimingJobErrorMsg =
+                    "<p>There was an error when claiming this job.</p><p>This can happen if the job is not available anymore or has been cancelled.</p>";
+                }
+              } else {
+                claimingJobSuccess = true;
+                claimingJobError = false;
+                setTimeout(() => push(`/translate/${jobID}`), 2300);
+              }
+            } catch (err) {
+              claimingJobError = true;
+              claimingJobSuccess = false;
+            }
+          } else {
+            claimingJobError = true;
+            return;
+          }
+        }
+      );
+    } catch (error) {
+      console.log(error);
+      claimingJobError = true;
+    }
+  };
+
+  const updateAvailableJobs = async change => {
+    if (change.type === "added") {
+      // verifies job price with data from blockchain
+      const job = await $web3Store.contractInstance.methods
+        .jobs(change.doc.id)
+        .call();
+      const price = job.price
+        ? fromWeiToEther($web3Store.web3, job.price)
+        : "error";
+      // updates available jobs
+      availableJobs = [
+        { ...change.doc.data(), id: change.doc.id, price },
+        ...availableJobs
+      ];
+    } else if (change.type === "removed") {
+      availableJobs = availableJobs.filter(job => job.id !== change.doc.id);
+    }
+  };
+
   afterUpdate(async () => {
     if ($userStore.accountType && $userStore.info && !jobsFetched) {
       // import jobs
-      /*try {
+      try {
         const db = firebase.firestore();
         let snapShot;
         if ($userStore.accountType === "translator") {
-          snapShot = await db
+          const db = firebase.firestore();
+          unsuscribeToMarketUpdate = await db
             .collection("jobMarket")
             .where("fromLang", "==", $userStore.info.languagePairs[0].from)
             .where("toLang", "==", $userStore.info.languagePairs[0].to)
             .orderBy("timestamp")
-            .get();
+            .onSnapshot(snapShot => {
+              if (snapShot.docChanges().length === 0) noJobAvailable = true;
+              snapShot.docChanges().forEach(change => {
+                updateAvailableJobs(change);
+              });
+            });
         } else {
-          snapShot = await db
+          unsuscribeToMarketUpdate = await db
             .collection("jobMarket")
             .orderBy("timestamp")
-            .get();
+            .onSnapshot(snapShot => {
+              if (snapShot.docChanges().length === 0) noJobAvailable = true;
+              snapShot.docChanges().forEach(change => {
+                updateAvailableJobs(change);
+              });
+            });
         }
-        if (snapShot.docs.length === 0) noJobAvailable = true;
-        snapShot.forEach(
-          doc =>
-            (availableJobs = [...availableJobs, { id: doc.id, ...doc.data() }])
-        );
-        console.log(JSON.stringify(availableJobs));
       } catch (err) {
         console.log(err);
         loadingMarketError = true;
@@ -130,19 +171,21 @@
           "An error has occurred while downloading the new jobs!"
         );
         return;
-      }*/
-      setTimeout(() => {
+      }
+      /*setTimeout(() => {
         availableJobs = dataFromFirebase.filter(
           doc =>
             doc.fromLang === $userStore.info.languagePairs[0].from &&
             doc.toLang === $userStore.info.languagePairs[0].to
         );
-      }, 1000);
+      }, 1000);*/
       jobsFetched = true;
     }
   });
 
-  onMount(async () => {});
+  onDestroy(() => {
+    if (unsuscribeToMarketUpdate) unsuscribeToMarketUpdate();
+  });
 </script>
 
 <style>
@@ -153,7 +196,7 @@
 
   .job {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: space-between;
     align-items: center;
     width: 60%;
@@ -169,6 +212,20 @@
 
   .job:hover {
     margin: 10px 10px 10px 30px;
+  }
+
+  .job-details {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .job-comments {
+    width: 100%;
+    border: none;
+    border-top: solid 1px #e2e8f0;
   }
 
   .icon {
@@ -194,8 +251,14 @@
     font-size: 0.8rem;
   }
 
+  .comments {
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
   .new-transl {
     justify-content: center !important;
+    border-left: solid 6px #2f855a;
   }
 
   .new-transl a {
@@ -208,10 +271,27 @@
     color: inherit;
   }
 
-  .claim-job {
+  .claim-job span {
     color: #48bb78;
     font-weight: bold;
     cursor: pointer;
+  }
+
+  .loader {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .success-icon {
+    width: 100%;
+    text-align: center;
+  }
+
+  .success-icon img {
+    width: 24px;
+    height: 24px;
   }
 
   @media (max-width: 1024px) {
@@ -221,6 +301,44 @@
   }
 </style>
 
+{#if claimingJob && !claimingJobError && !claimingJobSuccess}
+  <!-- claiming job has been sent, waiting-->
+  <Modal type="info" size="small" on:close={() => (claimingJob = false)}>
+    <div slot="title">Claiming This Job</div>
+    <div slot="body">
+      <p>We are checking if the translation is available.</p>
+      <p>
+        You will be refunded the gas fee if you are not the first one to claim
+        it.
+      </p>
+      <p>This may take a couple of minutes.</p>
+      <p>Please don't close the window.</p>
+      <div class="loader">
+        <div class="dot-typing" />
+      </div>
+    </div>
+  </Modal>
+{:else if claimingJob && claimingJobError && !claimingJobSuccess}
+  <!--error after claiming job-->
+  <Modal type="error" size="small" on:close={() => (claimingJob = false)}>
+    <div slot="title">Claiming This Job</div>
+    <div slot="body">
+      {@html claimingJobErrorMsg}
+    </div>
+  </Modal>
+{:else if claimingJob && !claimingJobError && claimingJobSuccess}
+  <!-- success after claiming job-->
+  <Modal type="success" size="small" on:close={() => (claimingJob = false)}>
+    <div slot="title">Claiming This Job</div>
+    <div slot="body">
+      <p>Congratulations, you claimed this translation!</p>
+      <p>We are redirecting you to the translation interface.</p>
+      <p class="success-icon">
+        <img src="images/thumbs-up.svg" alt="thumbs-up" />
+      </p>
+    </div>
+  </Modal>
+{/if}
 <main>
   <h1>Market Page</h1>
   <h3>Find here all the translation jobs</h3>
@@ -239,38 +357,60 @@
           timestamp: job.timestamp
         })}`}
         in:fly={{ y: 200, duration: 500 }}>
-        <div>
-          <p>
-            {#if job.supportType === 'file'}
-              <img src="images/file.svg" alt="file type" class="icon" />
-            {:else}
-              <img src="images/file-text.svg" alt="file type" class="icon" />
+        <div class="job-details">
+          <div>
+            <p>
+              {#if job.supportType === 'file'}
+                <img src="images/file.svg" alt="file type" class="icon" />
+              {:else}
+                <img src="images/file-text.svg" alt="file type" class="icon" />
+              {/if}
+              {`${shortenHash(job.id)}`}
+            </p>
+            <p>
+              <em>{job.jobType[0].toUpperCase() + job.jobType.slice(1)}</em>
+            </p>
+            {#if $userStore.accountType === 'translator'}
+              <p class="claim-job">
+                <span on:click={() => claimJob(job.id)}>Claim</span>
+              </p>
             {/if}
-            {`${shortenHash(job.id)}`}
-          </p>
-          <p>
-            <em>{job.jobType[0].toUpperCase() + job.jobType.slice(1)}</em>
-          </p>
-          {#if $userStore.accountType === 'translator'}
-            <p class="claim-job">Claim</p>
-          {/if}
+          </div>
+          <div>
+            <p>
+              {`${langs.where('3', job.fromLang).name} => ${langs.where('3', job.toLang).name}`}
+            </p>
+            <p>
+              <em>{job.contentType}</em>
+            </p>
+          </div>
+          <div style="text-align:right">
+            <p>Ξ {job.price}</p>
+            <p class="duedate">
+              Due {moment(parseInt(job.timestamp) + parseInt(job.duedate * 1000)).fromNow()}
+            </p>
+            {#if job.comments.length > 0}
+              <p
+                class="comments"
+                on:click={() => (showComments = !showComments)}>
+                -> Comments
+              </p>
+            {/if}
+          </div>
         </div>
-        <div>
-          <p>
-            {`${langs.where('3', job.fromLang).name} => ${langs.where('3', job.toLang).name}`}
-          </p>
-          <p>
-            <em>{job.contentType}</em>
-          </p>
-        </div>
-        <div style="text-align:right">
-          <p>
-            Ξ {Math.round($web3Store.web3.utils.fromWei(job.price.toString(), 'ether') * 10000) / 10000}
-          </p>
-          <p class="duedate">
-            Due {moment(parseInt(job.timestamp) + parseInt(job.duedate * 1000)).fromNow()}
-          </p>
-        </div>
+        {#if job.comments.length > 0 && showComments}
+          <div class="job-comments" transition:slide={{ x: 50, duration: 500 }}>
+            {#each job.comments as comment}
+              <p class="comment">
+                Comment from {comment.from}:
+                <em>"{comment.text}"</em>
+                <span style="font-size:0.7rem">
+                  ({moment(comment.timestamp).format('MMM Do YYYY, h:mm:ss a')})
+                </span>
+              </p>
+            {/each}
+          </div>
+        {/if}
       </div>
     {:else}
       {#if loadingMarketError}

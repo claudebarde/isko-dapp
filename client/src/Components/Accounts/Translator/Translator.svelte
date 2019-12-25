@@ -31,6 +31,23 @@
     justify-content: space-between;
   }
 
+  .active-translations p {
+    margin: 0px 0px 10px 10px;
+  }
+
+  .active-translations p:first-child {
+    margin-left: 0px;
+  }
+
+  .active-translations p a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .active-translations p a:hover {
+    font-style: italic;
+  }
+
   .lang-pair-choice {
     margin: 0;
     margin-bottom: 5px;
@@ -130,19 +147,31 @@
     </div>
     <div class="account-card">
       <div class="account-card__content">
-        <div>Language Pairs</div>
-        <div>{$userStore.info.languagePairs.length}</div>
+        <div>Language Pair</div>
+        <div>
+          {`${langs.where('3', $userStore.info.languagePairs[0].from).name} => ${langs.where('3', $userStore.info.languagePairs[0].to).name}`}
+        </div>
       </div>
-      {#if $userStore.info.languagePairs.length > 0}
-        <div class="account-card__content">
-          {#each $userStore.info.languagePairs as item}
-            <span>
-              {`${langs.where('3', item.from).name} => ${langs.where('3', item.to).name}`}
-            </span>
+      <div class="account-card__content">
+        <div class="active-translations">
+          <p>Active Translations</p>
+          {#each $userStore.info.activeTranslations as transl}
+            <p>
+              <a href={`/#/translate/${transl}`}>
+                {shortenHash(transl)}
+                <img
+                  src="images/external-link.svg"
+                  class="external-link"
+                  alt="external link" />
+              </a>
+            </p>
+          {:else}
+            <p>No active translation</p>
           {/each}
         </div>
-      {/if}
-      <div class="account-card__content">
+        <div>{$userStore.info.activeTranslations.length}</div>
+      </div>
+      <!-- <div class="account-card__content">
         <div>Add a second language pair</div>
         <div>
           <p class="lang-pair-choice">
@@ -170,15 +199,12 @@
               on:click={addNewLangPair} />
           </p>
         </div>
-      </div>
+      </div>-->
     </div>
     <div class="account-card">
       <div class="account-card__content">
-        <div>Update email</div>
-        <div>
-          {$userStore.info.email}
-          <img src="images/edit.svg" alt="add" class="external-link" />
-        </div>
+        <div>Email address</div>
+        <div>{$userStore.info.email}</div>
       </div>
       <div class="account-card__content">
         <div>Update name</div>

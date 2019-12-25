@@ -11,6 +11,8 @@
   import WarningModal from "../Components/Modals/WarningModal.svelte";
   import LoginModal from "../Components/Modals/LoginModal.svelte";
   import SignupModal from "../Components/Modals/SignupModal.svelte";
+  import Modal from "../Components/Modal.svelte";
+  import Button from "../Components/Button.svelte";
   import { link, push, location } from "svelte-spa-router";
   import contractInterface from "../../../build/contracts/IskoEth.json";
   import { shortenHash } from "../utils/functions";
@@ -20,6 +22,9 @@
   let isUserTooltipOpen = false;
   const { toastTypes } = $eventsStore;
   const { toggleToast, setToastType } = eventsStore;
+  let subscribeToAccount;
+  let connectWalletModal = false;
+  let loading = true;
 
   const openLoginModal = () => {
     dispatch("openLogin", true);
@@ -81,6 +86,11 @@
   firebase.auth().onAuthStateChanged(async user => {
     //console.log("change of auth state:", user);
     if (user !== null) {
+      if (!$web3Store.currentAddress) {
+        // tries to renew user's address
+        const accounts = await ethereum.enable();
+        if (accounts.length > 0) web3Store.setCurrentAddress(accounts[0]);
+      }
       //console.log(await firebase.auth().currentUser.getIdToken(true));
       // checks if current address matches uid
       console.log($web3Store.currentAddress, user.uid.toLowerCase());
@@ -97,7 +107,23 @@
             console.log("call to firebase/translators");
             // prepares function to fetch user's information
             const db = firebase.firestore();
-            const doc = await db
+            subscribeToAccount = await db
+              .collection("translators")
+              .doc(user.uid)
+              .onSnapshot(doc => {
+                if (doc.exists) {
+                  userStore.updateAccountInfo({
+                    ...doc.data(),
+                    uid: user.uid,
+                    email: user.email,
+                    languagePairs: doc.data().languagePairs.map(pair => {
+                      const obj = pair.split("|");
+                      return { from: obj[0], to: obj[1] };
+                    })
+                  });
+                }
+              });
+            /*const doc = await db
               .collection("translators")
               .doc(user.uid)
               .get();
@@ -111,7 +137,7 @@
                   return { from: obj[0], to: obj[1] };
                 })
               });
-            }
+            }*/
           }
         } else {
           // user is registered as a customer
@@ -151,11 +177,37 @@
     }
   });
 
+  const connectWallet = async wallet => {
+    if (wallet === "metamask") {
+      try {
+        const accounts = await ethereum.enable();
+        web3Store.hasMetamask(true);
+        // finds user's address
+        if (accounts.length === 0) {
+          web3Store.isMetamaskConnected(false);
+        } else {
+          // if connected
+          web3Store.isMetamaskConnected(true);
+          web3Store.setCurrentAddress(accounts[0].toLowerCase());
+          setToastType("metamaskConnected");
+          toggleToast(true);
+          connectWalletModal = false;
+          // saves info in session storage
+          if (window.sessionStorage)
+            sessionStorage.setItem("metamask-permission", true);
+        }
+      } catch (error) {
+        console.log(error);
+        web3Store.isMetamaskConnected(false);
+      }
+    }
+  };
+
   onMount(async () => {
     // if MetaMask is already connected (for example after route change)
     if ($web3Store.isMetamaskConnected) return;
 
-    toggleToast(true);
+    //toggleToast(true);
 
     // detects ethereum provider injected by MetaMask
     if (window.ethereum) {
@@ -177,36 +229,41 @@
           parseInt(ethereum.networkVersion) === 1 ||
           process.env.NODE_ENV === "development"
         ) {
-          try {
-            const accounts = await ethereum.enable();
-            web3Store.hasMetamask(true);
-            // finds user's address
-            if (accounts.length === 0) {
+          if (
+            window.sessionStorage &&
+            window.sessionStorage.getItem("metamask-permission")
+          ) {
+            try {
+              const accounts = await ethereum.enable();
+              web3Store.hasMetamask(true);
+              // finds user's address
+              if (accounts.length === 0) {
+                web3Store.isMetamaskConnected(false);
+              } else {
+                // if connected
+                web3Store.isMetamaskConnected(true);
+                web3Store.setCurrentAddress(accounts[0].toLowerCase());
+                setToastType("metamaskConnected");
+                toggleToast(true);
+              }
+            } catch (error) {
+              console.log(error);
               web3Store.isMetamaskConnected(false);
-            } else {
-              // if connected
-              web3Store.isMetamaskConnected(true);
-              web3Store.setCurrentAddress(accounts[0].toLowerCase());
-              setToastType("metamaskConnected");
-              toggleToast(true);
             }
-          } catch (error) {
-            console.log(error);
-            web3Store.isMetamaskConnected(false);
-          }
-          // checks if user is already registered in smart contract
-          try {
-            // returns translator balance if any
-            const userBalance = await contract.methods
-              .returnTranslator($web3Store.currentAddress.toLowerCase())
-              .call();
-            userStore.updateBalance(userBalance);
-            if (userBalance > 0) userStore.updateAccountType("translator");
-          } catch (error) {
-            console.log(error);
-            eventsStore.toggleWarningModal(
-              "There was a problem connecting to the smart contract.<br><br>Please try again later or contact the customer service."
-            );
+            // checks if user is already registered in smart contract
+            try {
+              // returns translator balance if any
+              const userBalance = await contract.methods
+                .returnTranslator($web3Store.currentAddress.toLowerCase())
+                .call();
+              userStore.updateBalance(userBalance);
+              if (userBalance > 0) userStore.updateAccountType("translator");
+            } catch (error) {
+              console.log(error);
+              eventsStore.toggleWarningModal(
+                "There was a problem connecting to the smart contract.<br><br>Please try again later or contact the customer service."
+              );
+            }
           }
         } else {
           web3Store.isMetamaskConnected(false);
@@ -222,6 +279,7 @@
         "Non-Ethereum browser detected. You should consider trying MetaMask!"
       );
     }
+    loading = false;
   });
 </script>
 
@@ -270,6 +328,17 @@
     color: white;
   }
 
+  .menu-item {
+    padding: 0px 8px;
+    color: #edf2f7;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .menu-item:hover {
+    color: white;
+  }
+
   .menu-item-address {
     position: relative;
     display: inline-block;
@@ -280,6 +349,45 @@
     color: #edf2f7;
     font-style: italic;
     text-transform: uppercase;
+  }
+
+  .connect-wallet {
+    color: #4fd1c5;
+    border: solid 1px #edf2f7;
+    padding: 5px;
+    border-radius: 5px;
+    background-color: #edf2f7;
+    cursor: pointer;
+  }
+
+  .connect-wallet:hover {
+    background-color: white;
+  }
+
+  .connect-wallet-modal {
+    background-color: white;
+  }
+
+  .connect-wallet-modal__option {
+    display: flex;
+    flex-direction: row;
+    justify-content: left;
+    align-items: center;
+    text-align: left;
+    margin: 10px;
+    padding: 10px;
+    background-color: #f7f8f9;
+    border: solid 1px #f7f8f9;
+    border-radius: 0.25rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+  }
+
+  .connect-wallet-modal__option img {
+    height: 50px;
+    width: 50px;
+    margin-right: 20px;
   }
 
   @media (max-width: 640px) {
@@ -313,72 +421,94 @@
 {#if $eventsStore.isSignupModalOpen && parseInt($userStore.balance) === 0 && $userStore.balance !== undefined}
   <SignupModal on:close={eventsStore.toggleSignupModal} />
 {/if}
+{#if connectWalletModal}
+  <Modal size="small" type="info" on:close={() => (connectWalletModal = false)}>
+    <div slot="title">Connect a Wallet</div>
+    <div slot="body" class="connect-wallet-modal">
+      <div
+        class="connect-wallet-modal__option"
+        on:click={() => connectWallet('metamask')}>
+        <img src="images/metamask-fox.svg" alt="metamask" />
+        Connect MetaMask Wallet
+      </div>
+    </div>
+  </Modal>
+{/if}
 <nav class="navbar">
   <div class="navbar-logo">
     <a href="/" use:link>Isko Eth</a>
   </div>
   <div class="navbar-menu">
-    <div class="menu-item">
+    <div>
       <a href="/translate" use:link>Translate</a>
     </div>
-    <div class="menu-item">
+    <div>
       <a href="/market" use:link>Market</a>
     </div>
-    {#if $userStore.isUserConnected !== undefined}
-      {#if $userStore.isUserConnected}
-        <div class="menu-item">
-          <a href="/account" use:link>Account</a>
-        </div>
+    {#if loading}
+      <div class="menu-item">Loading the awesome...</div>
+    {:else if !$web3Store.hasMetamask}
+      <div>
         <div
-          class="menu-item"
-          on:click={async () => {
-            try {
-              await firebase.auth().signOut();
-              userStore.connectedUser(false);
-              if ($userStore.accountType === 'customer') {
-                userStore.updateAccountType(undefined);
-              }
-            } catch (error) {
-              error;
-            }
-          }}>
-          <a href="/" use:link>Log Out</a>
+          class="connect-wallet"
+          on:click={() => (connectWalletModal = true)}>
+          Connect Wallet
         </div>
-      {:else}
-        {#if parseInt($userStore.balance) === 0}
+      </div>
+    {:else}
+      {#if $userStore.isUserConnected !== undefined}
+        {#if $userStore.isUserConnected}
+          <div>
+            <a href="/account" use:link>Account</a>
+          </div>
           <div
-            class="menu-item"
-            on:click={$web3Store.isMetamaskConnected ? eventsStore.toggleSignupModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
-            <span>Sign Up</span>
+            on:click={async () => {
+              try {
+                await firebase.auth().signOut();
+                userStore.connectedUser(false);
+                if ($userStore.accountType === 'customer') {
+                  userStore.updateAccountType(undefined);
+                }
+              } catch (error) {
+                error;
+              }
+            }}>
+            <a href="/" use:link>Log Out</a>
+          </div>
+        {:else}
+          {#if parseInt($userStore.balance) === 0}
+            <div
+              on:click={$web3Store.isMetamaskConnected ? eventsStore.toggleSignupModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
+              <span>Sign Up</span>
+            </div>
+          {/if}
+          <div
+            on:click={$web3Store.isMetamaskConnected ? eventsStore.toggleLoginModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
+            <span>Log In</span>
           </div>
         {/if}
-        <div
-          class="menu-item"
-          on:click={$web3Store.isMetamaskConnected ? eventsStore.toggleLoginModal : () => openWarningModal('You must be connected to MetaMask to perform this action.')}>
-          <span>Log In</span>
-        </div>
       {/if}
+      <div class="menu-item-address">
+        {#if $userStore.accountType === 'translator'}
+          <Dot type="success" />
+        {:else if $userStore.accountType === 'customer'}
+          <Dot type="info" />
+        {:else}
+          <Dot type="error" />
+        {/if}
+        <span
+          class="menu-item-address__text"
+          on:mouseenter={() => (isUserTooltipOpen = true)}
+          on:mouseleave={() => (isUserTooltipOpen = false)}>
+          {$web3Store.currentAddress === undefined ? '🚫' : $web3Store.currentAddress.slice(0, 6) + '...' + $web3Store.currentAddress.slice(-4)}
+        </span>
+        {#if isUserTooltipOpen && userStore.accountType === 'translator'}
+          <Tooltip
+            content={['Current balance:', `${$web3Store.web3.utils.fromWei($userStore.balance, 'ether')} ether`]}
+            align="right" />
+        {/if}
+      </div>
     {/if}
-    <div class="menu-item-address">
-      {#if $userStore.accountType === 'translator'}
-        <Dot type="success" />
-      {:else if $userStore.accountType === 'customer'}
-        <Dot type="info" />
-      {:else}
-        <Dot type="error" />
-      {/if}
-      <span
-        class="menu-item-address__text"
-        on:mouseenter={() => (isUserTooltipOpen = true)}
-        on:mouseleave={() => (isUserTooltipOpen = false)}>
-        {$web3Store.currentAddress === undefined ? '🚫' : $web3Store.currentAddress.slice(0, 6) + '...' + $web3Store.currentAddress.slice(-4)}
-      </span>
-      {#if isUserTooltipOpen && userStore.accountType === 'translator'}
-        <Tooltip
-          content={['Current balance:', `${$web3Store.web3.utils.fromWei($userStore.balance, 'ether')} ether`]}
-          align="right" />
-      {/if}
-    </div>
   </div>
   <div class="burger">
     <img src="images/menu.svg" alt="menu" class="cursor-pointer" />

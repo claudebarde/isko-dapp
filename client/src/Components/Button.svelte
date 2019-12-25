@@ -33,6 +33,7 @@
     border-bottom: 1rem;
     cursor: pointer;
     font-size: 100%;
+    transition: background-color 0.5s;
   }
 
   .success {
@@ -42,8 +43,6 @@
   }
   .success:hover {
     background-color: #68d391; /*400*/
-    border: none;
-    border-bottom: solid 4px #48bb78; /*500*/
   }
   .success-clicked {
     background-color: #48bb78; /*500*/
@@ -60,8 +59,6 @@
 
   .info:hover {
     background-color: #63b3ed; /*400*/
-    border: none;
-    border-bottom: solid 4px #4299e1; /*500*/
   }
 
   .info-clicked {
@@ -77,8 +74,6 @@
   }
   .teal:hover {
     background-color: #4fd1c5; /*400*/
-    border: none;
-    border-bottom: solid 4px #38b2ac; /*500*/
   }
   .teal-clicked {
     background-color: #38b2ac; /*500*/
@@ -90,6 +85,20 @@
     background-color: #a0aec0; /*500*/
     border: none;
     border-bottom: solid 4px #4a5568; /*700*/
+  }
+
+  .error {
+    background-color: #f56565; /*500*/
+    border: none;
+    border-bottom: solid 4px #c53030; /*700*/
+  }
+  .error:hover {
+    background-color: #fc8181; /*400*/
+  }
+  .error-clicked {
+    background-color: #f56565; /*500*/
+    border: none;
+    border-top: solid 4px #c53030; /*700*/
   }
 </style>
 

@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher } from "svelte";
-  import { fade } from "svelte/transition";
+  import { fade, fly } from "svelte/transition";
 
   export let type;
   export let size;
@@ -85,6 +85,10 @@
     background-color: #ed8936;
   }
 
+  .error {
+    background-color: #f56565;
+  }
+
   .body {
     padding: 0.75rem;
     overflow: auto;
@@ -101,7 +105,10 @@
   class="transparent-backdrop"
   in:fade={{ delay: 100, duration: fadeDuration }}
   out:fade={{ duration: fadeDuration }}>
-  <div class={`modal ${size === 'small' ? 'small-modal' : 'large-modal'}`}>
+  <div
+    class={`modal ${size === 'small' ? 'small-modal' : 'large-modal'}`}
+    in:fly={{ y: 150, duration: fadeDuration * 3, delay: 300 }}
+    out:fly={{ y: 150, duration: fadeDuration * 3 }}>
     <img src="images/x.svg" alt="close" class="modal__close" on:click={close} />
     <p class={`title ${type}`}>
       <slot name="title" />

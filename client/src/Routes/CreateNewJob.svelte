@@ -110,12 +110,12 @@
         let feeInCents = 0;
         if (jobType === "translation") {
           if (extraQuality) {
-            feeInCents = 0.06;
+            feeInCents = 0.05;
           } else {
-            feeInCents = 0.04;
+            feeInCents = 0.03;
           }
         } else if (jobType === "proofreading") {
-          feeInCents = 0.03;
+          feeInCents = 0.02;
         }
         const feePerWord = ethPrice
           ? $web3Store.web3.utils.toWei(
@@ -214,6 +214,17 @@
       );
       return;
     }
+    // checks if window has property btoa
+    let encodeToBase64;
+    if (!!window.btoa === false) {
+      validationModal = false;
+      eventsStore.toggleWarningModal(
+        "The `btoa` property is missing from the window object.<br />This may happen if you are using an older browser.<br />Please update to a newer version."
+      );
+      return;
+    } else {
+      encodeToBase64 = window.btoa;
+    }
 
     const {
       web3,
@@ -241,7 +252,7 @@
     savedToTheBlockchain = false; // display message
     reviewJob = false; // display progression
     // creates unique id
-    let jobID = web3.utils.sha3(textInput);
+    let jobID = encodeToBase64(web3.utils.sha3(textInput)).slice(2, 30);
     // prepares transaction parameters
     let tx_builder = contractInstance.methods.addNewJob(
       currentAddress.toLowerCase(),
@@ -430,19 +441,6 @@
     flex-direction: column;
   }
 
-  textarea {
-    border-radius: 0.25rem;
-    padding: 0.5rem;
-    margin: 0.5rem 0;
-    border: solid 1px #cbd5e0;
-    font-size: 1rem;
-    resize: none;
-  }
-
-  textarea:focus {
-    outline: none;
-  }
-
   #file-input {
     width: 0.1px;
     height: 0.1px;
@@ -485,8 +483,8 @@
 
   .modal-body__content {
     display: flex;
-    flex-direction: row;
-    justify-content: space-evenly;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
   }
 
@@ -559,13 +557,17 @@
               <br />
               This may take a few minutes.
             </p>
-            <div class="dot-pulse" />
+            <br />
+            <div class="dot-typing" />
+            <br />
           </div>
         {/if}
         {#if savedToTheAccount === false}
           <div class="modal-body__content">
             <p>2- Saving your order to your account.</p>
-            <div class="dot-pulse" />
+            <br />
+            <div class="dot-typing" />
+            <br />
           </div>
         {/if}
       {/if}

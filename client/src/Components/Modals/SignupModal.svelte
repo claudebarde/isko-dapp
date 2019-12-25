@@ -78,17 +78,26 @@
     } else {
       correctInfo = { ...correctInfo, correctPassword: false };
     }
-    // language pair "from"
-    if (info.fromLang && info.fromLang !== "default") {
-      correctInfo = { ...correctInfo, correctFromLang: true };
+    // language pairs
+    if (!translator) {
+      correctInfo = {
+        ...correctInfo,
+        correctFromLang: true,
+        correctToLang: true
+      };
     } else {
-      correctInfo = { ...correctInfo, correctFromLang: false };
-    }
-    // language pair "to"
-    if (info.toLang && info.toLang !== "default") {
-      correctInfo = { ...correctInfo, correctToLang: true };
-    } else {
-      correctInfo = { ...correctInfo, correctToLang: false };
+      // language pair "from"
+      if (info.fromLang && info.fromLang !== "default") {
+        correctInfo = { ...correctInfo, correctFromLang: true };
+      } else {
+        correctInfo = { ...correctInfo, correctFromLang: false };
+      }
+      // language pair "to"
+      if (info.toLang && info.toLang !== "default") {
+        correctInfo = { ...correctInfo, correctToLang: true };
+      } else {
+        correctInfo = { ...correctInfo, correctToLang: false };
+      }
     }
 
     const check = Object.keys(correctInfo)
@@ -442,7 +451,6 @@
   }
 </style>
 
-<!-- class={`${translator ? '-mb-px' : ''} mr-1 w-1/2 text-center`} -->
 <Modal on:close={close} type="success" size="normal">
   <span slot="title">Sign up</span>
   <div slot="body">
@@ -509,28 +517,30 @@
             <p class="error-message">&nbsp;</p>
           {/if}
         </div>
-        <div class="selectLangPair">
-          <strong>Choose your main language pair</strong>
-          <select
-            name="from-lang"
-            id="from-lang"
-            on:change={event => (info = { ...info, fromLang: event.target.value })}>
-            <option value="default" selected="selected">Language</option>
-            {#each langs.all() as item}
-              <option value={item[3]}>{item.name}</option>
-            {/each}
-          </select>
-          <span>=></span>
-          <select
-            name="from-lang"
-            id="from-lang"
-            on:change={event => (info = { ...info, toLang: event.target.value })}>
-            <option value="default" selected="selected">Language</option>
-            {#each langs.all() as item}
-              <option value={item[3]}>{item.name}</option>
-            {/each}
-          </select>
-        </div>
+        {#if translator}
+          <div class="selectLangPair">
+            <strong>Choose your main language pair</strong>
+            <select
+              name="from-lang"
+              id="from-lang"
+              on:change={event => (info = { ...info, fromLang: event.target.value })}>
+              <option value="default" selected="selected">Language</option>
+              {#each langs.all() as item}
+                <option value={item[3]}>{item.name}</option>
+              {/each}
+            </select>
+            <span>=></span>
+            <select
+              name="from-lang"
+              id="from-lang"
+              on:change={event => (info = { ...info, toLang: event.target.value })}>
+              <option value="default" selected="selected">Language</option>
+              {#each langs.all() as item}
+                <option value={item[3]}>{item.name}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
         <div class="footer">
           {#if translator}
             {#if insufficientFunds}

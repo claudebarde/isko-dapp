@@ -6,7 +6,7 @@ const store = () => {
     isMetamaskConnected: false,
     currentAddress: undefined,
     web3: undefined,
-    contractAddress: "0x43D4342Ee756d4635EbA91b8b5f290dd00d5c2B0",
+    contractAddress: "0x498214660D33Da8CF25cfE9c0c9ed8C8e4753b32",
     contractInstance: undefined
   });
 
