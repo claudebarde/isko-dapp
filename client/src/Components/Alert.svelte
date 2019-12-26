@@ -2,7 +2,10 @@
   export let text;
   export let type;
   export let hasDot;
+  export let hasIcon = false;
   import { fly } from "svelte/transition";
+  import AlertTriangle from "./Icons/AlertTriangle.svelte";
+  import ThumbsUp from "./Icons/ThumbsUp.svelte";
 </script>
 
 <style>
@@ -69,12 +72,18 @@
     {#if hasDot}
       <div class="dot error-dot" />
     {/if}
+    {#if hasIcon}
+      <AlertTriangle color="#c53030" />
+    {/if}
     {text}
   </div>
 {:else if type === 'warning'}
   <div class="alert warning" role="alert">
     {#if hasDot}
       <div class="dot warning-dot" />
+    {/if}
+    {#if hasIcon}
+      <AlertTriangle color="#c05621" />
     {/if}
     {text}
   </div>
@@ -83,12 +92,18 @@
     {#if hasDot}
       <div class="dot success-dot" />
     {/if}
+    {#if hasIcon}
+      <ThumbsUp color="#2f855a" />
+    {/if}
     {text}
   </div>
 {:else if type === 'info'}
   <div class="alert info" role="alert">
     {#if hasDot}
       <div class="dot info-dot" />
+    {/if}
+    {#if hasIcon}
+      <AlertTriangle color="#2b6cb0" />
     {/if}
     {text}
   </div>

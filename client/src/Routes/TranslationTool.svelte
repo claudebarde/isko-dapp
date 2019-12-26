@@ -9,10 +9,12 @@
   import eventsStore from "../stores/events-store";
   import { shortenHash, upperFirst, fromWeiToEther } from "../utils/functions";
   import Tag from "../Components/Tag.svelte";
+  import Alert from "../Components/Alert.svelte";
   import TranslationGrid from "../Components/TranslationGrid.svelte";
 
   export let params = {};
   let jobID = undefined;
+  let allowedTranslator = undefined;
   let translFetched = false;
   let translationDetails = { supportType: "" };
   let smContractInfo = undefined;
@@ -62,6 +64,7 @@
   };
 
   onMount(async () => {
+    // checks if job id has been provided
     if (params.id) {
       jobID = params.id;
     } else {
@@ -72,7 +75,22 @@
   onDestroy(() => clearInterval(dueTimeInterval));
 
   afterUpdate(async () => {
-    if (!translFetched && $userStore.info) {
+    if (
+      allowedTranslator === undefined &&
+      jobID &&
+      $web3Store.contractInstance &&
+      $web3Store.currentAddress
+    ) {
+      // checks if translator ID is registered in the blockchain for the job
+      const job = await $web3Store.contractInstance.methods.jobs(jobID).call();
+      if (job.translator.toLowerCase() === $web3Store.currentAddress) {
+        allowedTranslator = true;
+      } else {
+        allowedTranslator = false;
+      }
+    }
+
+    if (allowedTranslator && !translFetched && $userStore.info) {
       try {
         // fetches translation from firebase
         const fetchTranslation = firebase
@@ -236,6 +254,17 @@
     {#if !jobID}
       <!-- if no job id provided -->
       <h4>No translation id has been provided.</h4>
+    {:else if allowedTranslator === undefined}
+      <div class="loading-transl">
+        <p>Loading your credentails</p>
+        <div class="dot-typing" />
+      </div>
+    {:else if allowedTranslator === false}
+      <Alert
+        type="error"
+        text="You are not allowed to work on this translation"
+        hasDot={false}
+        hasIcon={true} />
     {:else}
       <div class="title">
         <h3>Translation #{shortenHash(jobID)}</h3>
