@@ -158,7 +158,7 @@
           delete translationDetails.error;
         } else {
           if (result.data.msg) {
-            throw new Error(msg);
+            throw new Error(result.data.msg);
           } else {
             throw new Error("An error has occurred while fetching the job!");
           }

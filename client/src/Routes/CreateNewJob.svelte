@@ -80,7 +80,7 @@
         selectedFile = {
           size: fileSize,
           type: fileType,
-          name: chosenFileName,
+          name: $web3Store.web3.utils.sha3(chosenFileName + Date.now()),
           file
         };
         const reader = new FileReader();

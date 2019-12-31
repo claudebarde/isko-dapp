@@ -1,11 +1,13 @@
 <script>
   import { onMount, createEventDispatcher } from "svelte";
+  import firebase from "firebase";
   import Button from "./Button.svelte";
 
   export let content;
 
   let fileType = "";
   let fileSize = 0;
+  let fileLink = "";
   const dispatch = createEventDispatcher();
 
   onMount(() => {
@@ -38,6 +40,10 @@
     }
     // calculates size
     fileSize = Math.round(content.size / 1024);
+    // gets file link
+    if (Array.isArray(content.url) && content.url.length > 0) {
+      fileLink = content.url[0];
+    }
   });
 </script>
 
@@ -60,13 +66,23 @@
   .transl-file-elements p {
     margin: 5px 15px;
   }
+
+  .download-link {
+    text-decoration: none;
+    padding: 0px;
+    margin: 0px;
+    color: inherit;
+    font-style: inherit;
+  }
 </style>
 
 <div class="container">
   <p class="title">Download the translation</p>
   <div class="transl-file-elements">
     <p>
-      <Button type="success" text="Download file" />
+      <a href={fileLink} download={content.name} class="download-link">
+        <Button type="success" text="Download file" />
+      </a>
     </p>
     <p>
       File type:

@@ -48,7 +48,7 @@
     font-style: italic;
   }
 
-  .lang-pair-choice {
+  /*.lang-pair-choice {
     margin: 0;
     margin-bottom: 5px;
     display: flex;
@@ -59,7 +59,7 @@
 
   .lang-pair-choice select {
     margin-left: 5px;
-  }
+  }*/
 </style>
 
 {#if $userStore.info}
