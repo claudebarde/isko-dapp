@@ -3,6 +3,7 @@
   import { fly, slide } from "svelte/transition";
   import firebase from "firebase";
   import moment from "moment";
+  import { push } from "svelte-spa-router";
   import Navbar from "../Navbar/Navbar.svelte";
   import web3Store from "../stores/web3-store";
   import userStore from "../stores/user-store";
@@ -11,10 +12,13 @@
   import Tag from "../Components/Tag.svelte";
   import Alert from "../Components/Alert.svelte";
   import TranslationGrid from "../Components/TranslationGrid.svelte";
+  import TranslationFile from "../Components/TranslationFile.svelte";
+  import Button from "../Components/Button.svelte";
+  import Modal from "../Components/Modal.svelte";
+  import { sendTxAndWait, errorMessage } from "../utils/sendTxAndWait";
 
   export let params = {};
   let jobID = undefined;
-  let allowedTranslator = undefined;
   let translFetched = false;
   let translationDetails = { supportType: "" };
   let smContractInfo = undefined;
@@ -23,6 +27,12 @@
   let newComment = "";
   let openNewComment = false;
   let disableNewComment = false;
+  let modalType = "error";
+  let cancelModal = false;
+  let cancelationReason = "";
+  let pendingCancelation = false;
+  let cancelationError = undefined;
+  let cancelationErrorMsg = "";
 
   const validateComment = async event => {
     if (event.keyCode === 13) {
@@ -63,6 +73,65 @@
     }
   };
 
+  const cancelJob = async () => {
+    pendingCancelation = true;
+
+    const {
+      web3,
+      contractInstance,
+      currentAddress,
+      contractAddress
+    } = $web3Store;
+    try {
+      const result = await sendTxAndWait({
+        web3,
+        contractInstance,
+        currentAddress,
+        contractAddress,
+        method: "cancelJob",
+        methodParameters: [jobID]
+      });
+      if (result.result === "tx_included") {
+        // saves cancelation in firebase
+        // cancel job in firebase
+        const unclaimJob = firebase.functions().httpsCallable("unclaimJob"); // generates unique id token
+        const idToken = await firebase.auth().currentUser.getIdToken(true);
+        const result = await unclaimJob({
+          jobID,
+          idToken,
+          reason: cancelationReason
+        });
+        if (result.data.error === false) {
+          // we save the translation details
+          cancelationError = false;
+          modalType = "success";
+          setTimeout(() => {
+            push("/market");
+          }, 1500);
+        } else {
+          if (result.data.msg) {
+            throw new Error({ result: "firebase_error", errorMsg: msg });
+          } else {
+            throw new Error({
+              result: "firebase_error",
+              errorMsg:
+                "An error has occurred while canceling the job on the server!"
+            });
+          }
+        }
+      } else {
+        throw new Error(result);
+      }
+    } catch (error) {
+      console.log(error);
+      // if transaction did not go through
+      cancelationError = true;
+      cancelationErrorMsg = errorMessage(result.error);
+      // if error was returned
+      if (error.errorMsg) cancelationErrorMsg += `: ${error.errorMsg}`;
+    }
+  };
+
   onMount(async () => {
     // checks if job id has been provided
     if (params.id) {
@@ -75,22 +144,7 @@
   onDestroy(() => clearInterval(dueTimeInterval));
 
   afterUpdate(async () => {
-    if (
-      allowedTranslator === undefined &&
-      jobID &&
-      $web3Store.contractInstance &&
-      $web3Store.currentAddress
-    ) {
-      // checks if translator ID is registered in the blockchain for the job
-      const job = await $web3Store.contractInstance.methods.jobs(jobID).call();
-      if (job.translator.toLowerCase() === $web3Store.currentAddress) {
-        allowedTranslator = true;
-      } else {
-        allowedTranslator = false;
-      }
-    }
-
-    if (allowedTranslator && !translFetched && $userStore.info) {
+    if (!translFetched && $userStore.info) {
       try {
         // fetches translation from firebase
         const fetchTranslation = firebase
@@ -200,10 +254,6 @@
     align-items: flex-start;
   }
 
-  .job-info {
-    margin: 0px;
-  }
-
   .loading-transl {
     width: 100%;
     display: flex;
@@ -247,24 +297,155 @@
   .new-comment-container textarea {
     width: 30%;
   }
+
+  .cancelation-msg .loader {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .cancelation-msg img {
+    height: 24px;
+    width: 24px;
+    margin-right: 10px;
+  }
+
+  .modal-buttons {
+    float: right;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: row;
+  }
+
+  .modal-buttons .button {
+    margin: 0px 10px;
+    padding: 0px;
+  }
 </style>
 
+{#if cancelModal}
+  <Modal type={modalType} size="small" on:close={() => (cancelModal = false)}>
+    <div slot="title">
+      {#if pendingCancelation}
+        {#if cancelationError === undefined}
+          Pending Cancelation
+        {:else if cancelationError === true}
+          Cancelation Failed
+        {:else if cancelationError === false}Cancelation Successful{/if}
+      {:else}Cancel Translation{/if}
+    </div>
+    <div slot="body">
+      {#if pendingCancelation}
+        {#if cancelationError === undefined}
+          <div class="cancelation-msg">
+            <p>Cancelation in progress.</p>
+            <p>
+              This may take a couple of minutes, please do not refresh or leave
+              the page.
+            </p>
+            <div class="loader">
+              <div class="dot-typing" />
+            </div>
+          </div>
+        {:else if cancelationError === true}
+          <div class="cancelation-msg">
+            <p>This translation could not be canceled.</p>
+            {#if cancelationErrorMsg}
+              <p>{cancelationErrorMsg}</p>
+            {/if}
+          </div>
+        {:else if cancelationError === false}
+          <div class="cancelation-msg">
+            <p>
+              <img src="images/thumbs-up.svg" alt="thumbs-up" />
+              The translation was successfully canceled!
+            </p>
+          </div>
+        {/if}
+      {:else}
+        <p>
+          Are you sure you want to cancel this translation?
+          <br />
+          This will incur non-refundable gas fees.
+        </p>
+        <div>
+          <p>Please give a reason for your cancelation:</p>
+          <input
+            type="radio"
+            name="cancelation"
+            id="enough-time"
+            value="Not enough time"
+            bind:group={cancelationReason} />
+          <label for="enough-time">I don't have enough time</label>
+          <br />
+          <input
+            type="radio"
+            name="cancelation"
+            id="right-tools"
+            value="No right tools"
+            bind:group={cancelationReason} />
+          <label for="right-tools">I don't have the right tools</label>
+          <br />
+          <input
+            type="radio"
+            name="cancelation"
+            id="wrong-language"
+            value="Wrong language pair"
+            bind:group={cancelationReason} />
+          <label for="wrong-language">The language pair is wrong</label>
+          <br />
+          <input
+            type="radio"
+            name="cancelation"
+            id="inappropriate-content"
+            value="Inappropriate content"
+            bind:group={cancelationReason} />
+          <label for="inappropriate-content">
+            The content is inappropriate
+          </label>
+          <br />
+          <input
+            type="radio"
+            name="cancelation"
+            id="low-price"
+            value="Price is too low"
+            bind:group={cancelationReason} />
+          <label for="low-price">The price is too low</label>
+          <br />
+          <input
+            type="radio"
+            name="cancelation"
+            id="other"
+            value="Other reason"
+            bind:group={cancelationReason} />
+          <label for="other">Other reason</label>
+          <br />
+          <div class="modal-buttons">
+            <div class="button">
+              <Button
+                type={cancelationReason ? 'error' : 'disabled'}
+                text="Confirm"
+                on:click={cancelJob} />
+            </div>
+            <div class="button">
+              <Button
+                type="info"
+                text="Abort Cancelation"
+                on:click={() => (cancelModal = false)}
+                } />
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+  </Modal>
+{/if}
 <main>
   <div class="transl-body">
     {#if !jobID}
       <!-- if no job id provided -->
       <h4>No translation id has been provided.</h4>
-    {:else if allowedTranslator === undefined}
-      <div class="loading-transl">
-        <p>Loading your credentails</p>
-        <div class="dot-typing" />
-      </div>
-    {:else if allowedTranslator === false}
-      <Alert
-        type="error"
-        text="You are not allowed to work on this translation"
-        hasDot={false}
-        hasIcon={true} />
     {:else}
       <div class="title">
         <h3>Translation #{shortenHash(jobID)}</h3>
@@ -288,7 +469,7 @@
       </div>
       <div class="job-body">
         {#if translationDetails.supportType}
-          <div in:slide={{ y: 100, duration: 500 }}>
+          <div in:slide={{ y: 100, duration: 500 }} style="width: 100%">
             {#if translationDetails.comments && translationDetails.comments.length > 0}
               <div class="comments">
                 {#each translationDetails.comments as comment}
@@ -318,14 +499,22 @@
                 class="new-comment-container">
                 <textarea
                   rows="2"
-                  placeholder="Enter your comment here.."
+                  placeholder="Enter your comment here..."
                   maxlength="200"
                   disabled={disableNewComment}
                   on:keydown={validateComment}
                   bind:value={newComment} />
               </div>
             {/if}
-            <TranslationGrid content={translationDetails.content} {jobID} />
+            {#if translationDetails.supportType === 'text'}
+              <TranslationGrid
+                content={translationDetails.content}
+                on:cancel={() => (cancelModal = true)} />
+            {:else}
+              <TranslationFile
+                content={translationDetails.content}
+                on:cancel={() => (cancelModal = true)} />
+            {/if}
           </div>
         {:else}
           <div class="loading-transl">

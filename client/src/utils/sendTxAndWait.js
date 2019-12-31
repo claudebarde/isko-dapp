@@ -12,22 +12,22 @@ const unsubscribe = () => {
   });
 };
 
-const sendTxAndWait = ({
+export const sendTxAndWait = ({
   web3,
   contractInstance,
   currentAddress,
   contractAddress,
   value = 0,
   method,
-  methodParameters = null
+  methodParameters = []
 }) =>
   new Promise((resolve, reject) => {
     // prepares transaction parameters
     let tx_builder;
-    if (methodParameters === null) {
+    if (methodParameters.length === 0) {
       tx_builder = contractInstance.methods[method]();
     } else {
-      tx_builder = contractInstance.methods[method](methodParameters);
+      tx_builder = contractInstance.methods[method](...methodParameters);
     }
     let encoded_tx = tx_builder.encodeABI();
     let txObject = [
@@ -125,4 +125,23 @@ const sendTxAndWait = ({
       });
   });
 
-export default sendTxAndWait;
+export const errorMessage = error => {
+  switch (error) {
+    case "subscription_failed":
+      return "Subscription to new block headers failed";
+    case "sendTransaction_failed":
+      return "Transaction generated an error";
+    case "sendTransaction_no_receipt":
+      return "Transaction did not generate a receipt";
+    case "sendTransaction_failed_catch":
+      return "Unable to send transaction";
+    case "getBlock_error":
+      return "Unable to fetch new block headers";
+    case "subscription_error":
+      return "Unable to subscribe to new block headers";
+    case "firebase_error":
+      return "Unable to update database";
+    default:
+      return "Transaction failed";
+  }
+};

@@ -93,7 +93,6 @@
       }
       //console.log(await firebase.auth().currentUser.getIdToken(true));
       // checks if current address matches uid
-      console.log($web3Store.currentAddress, user.uid.toLowerCase());
       if (
         $web3Store.currentAddress &&
         user.uid.toLowerCase() === $web3Store.currentAddress.toLowerCase()
@@ -123,21 +122,6 @@
                   });
                 }
               });
-            /*const doc = await db
-              .collection("translators")
-              .doc(user.uid)
-              .get();
-            if (doc.exists) {
-              userStore.updateAccountInfo({
-                ...doc.data(),
-                uid: user.uid,
-                email: user.email,
-                languagePairs: doc.data().languagePairs.map(pair => {
-                  const obj = pair.split("|");
-                  return { from: obj[0], to: obj[1] };
-                })
-              });
-            }*/
           }
         } else {
           // user is registered as a customer
@@ -147,17 +131,18 @@
             console.log("call to firebase/customers");
             // prepares function to fetch user's information
             const db = firebase.firestore();
-            const doc = await db
+            subscribeToAccount = await db
               .collection("customers")
               .doc(user.uid)
-              .get();
-            if (doc.exists) {
-              userStore.updateAccountInfo({
-                ...doc.data(),
-                uid: user.uid,
-                email: user.email
+              .onSnapshot(doc => {
+                if (doc.exists) {
+                  userStore.updateAccountInfo({
+                    ...doc.data(),
+                    uid: user.uid,
+                    email: user.email
+                  });
+                }
               });
-            }
           }
         }
       } else {
@@ -170,6 +155,7 @@
         await firebase.auth().signOut();
       }
     } else {
+      if (subscribeToAccount) subscribeToAccount();
       console.log("user not connected");
       userStore.connectedUser(false);
       // goes back to main page
@@ -245,24 +231,25 @@
                 web3Store.setCurrentAddress(accounts[0].toLowerCase());
                 setToastType("metamaskConnected");
                 toggleToast(true);
+                // checks if user is already registered in smart contract
+                try {
+                  // returns translator balance if any
+                  const userBalance = await contract.methods
+                    .returnTranslator($web3Store.currentAddress.toLowerCase())
+                    .call();
+                  userStore.updateBalance(userBalance);
+                  if (userBalance > 0)
+                    userStore.updateAccountType("translator");
+                } catch (error) {
+                  console.log(error);
+                  eventsStore.toggleWarningModal(
+                    "There was a problem connecting to the smart contract.<br><br>Please try again later or contact the customer service."
+                  );
+                }
               }
             } catch (error) {
               console.log(error);
               web3Store.isMetamaskConnected(false);
-            }
-            // checks if user is already registered in smart contract
-            try {
-              // returns translator balance if any
-              const userBalance = await contract.methods
-                .returnTranslator($web3Store.currentAddress.toLowerCase())
-                .call();
-              userStore.updateBalance(userBalance);
-              if (userBalance > 0) userStore.updateAccountType("translator");
-            } catch (error) {
-              console.log(error);
-              eventsStore.toggleWarningModal(
-                "There was a problem connecting to the smart contract.<br><br>Please try again later or contact the customer service."
-              );
             }
           }
         } else {

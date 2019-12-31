@@ -10,6 +10,8 @@
   import Modal from "../Components/Modal.svelte";
   import { createEventDispatcher, onMount } from "svelte";
   import { slide } from "svelte/transition";
+  import { sendTxAndWait } from "../utils/sendTxAndWait";
+  import { validMIMEtypes } from "../utils/utils";
 
   // only customer account have access to this page
   if ($userStore.accountType && $userStore.accountType !== "customer")
@@ -64,33 +66,36 @@
   const validateSize = event => {
     const file = event.target.files[0];
     if (file && file.size / 1024 / 1024 <= 1) {
-      console.log(file);
-      // not more than 1 MB
-      const fileSize = file.size; // in bytes
-      const fileType = file.type;
-      let chosenFileName = file.name;
-      if (chosenFileName.length >= 20) {
-        const arr = file.name.split(".");
-        const extension = arr[arr.length - 1];
-        chosenFileName = chosenFileName.slice(0, 15) + "(...)." + extension;
-      }
+      if (validMIMEtypes.includes(file.type)) {
+        // not more than 1 MB
+        const fileSize = file.size; // in bytes
+        const fileType = file.type;
+        let chosenFileName = file.name;
+        if (chosenFileName.length >= 20) {
+          const arr = file.name.split(".");
+          const extension = arr[arr.length - 1];
+          chosenFileName = chosenFileName.slice(0, 15) + "(...)." + extension;
+        }
 
-      selectedFile = {
-        size: fileSize,
-        type: fileType,
-        name: chosenFileName,
-        file
-      };
-      const reader = new FileReader();
-      // file reading finished successfully
-      reader.addEventListener("load", event => {
-        const text = event.target.result;
-        // contents of the file
-        //console.log(text);
-        textInput = text;
-      });
-      // read as text file
-      reader.readAsText(file);
+        selectedFile = {
+          size: fileSize,
+          type: fileType,
+          name: chosenFileName,
+          file
+        };
+        const reader = new FileReader();
+        // file reading finished successfully
+        reader.addEventListener("load", event => {
+          const text = event.target.result;
+          // contents of the file
+          //console.log(text);
+          textInput = text;
+        });
+        // read as text file
+        reader.readAsText(file);
+      } else {
+        console.log("Unsupported file type");
+      }
     } else {
       console.log("File is over 1 MB");
     }
@@ -182,7 +187,7 @@
   }
 
   // unsubscribes the subscription to new block headers
-  const newBlockUnsubscribe = () => {
+  /*const newBlockUnsubscribe = () => {
     newBlocksSubscription.unsubscribe(function(error, success) {
       if (success) {
         //console.log("Successfully unsubscribed!");
@@ -190,11 +195,11 @@
         console.log(error);
       }
     });
-  };
+  };*/
 
   // listens to tx failure to unsuscribe from new block header
   $: if (txFailed) {
-    newBlockUnsubscribe();
+    //newBlockUnsubscribe();
     validationModal = false;
     eventsStore.toggleWarningModal(
       `Your transaction could not be processed. Please try again later.`
@@ -253,149 +258,107 @@
     reviewJob = false; // display progression
     // creates unique id
     let jobID = encodeToBase64(web3.utils.sha3(textInput)).slice(2, 30);
-    // prepares transaction parameters
-    let tx_builder = contractInstance.methods.addNewJob(
-      currentAddress.toLowerCase(),
-      jobID
-    );
-    let encoded_tx = tx_builder.encodeABI();
-    let txObject = [
-      {
-        data: encoded_tx,
-        from: currentAddress.toLowerCase(),
-        to: contractAddress,
+    // creates and sends transaction
+    try {
+      const result = await sendTxAndWait({
+        web3,
+        contractInstance,
+        currentAddress,
+        contractAddress,
+        method: "addNewJob",
+        methodParameters: [currentAddress.toLowerCase(), jobID],
         value: web3.utils.numberToHex(data.price)
-      }
-    ];
-    //console.log(jobID, txObject);
-    // subscribes to new block creation to confirm account creation
-    let txHash;
-    newBlocksSubscription = web3.eth
-      .subscribe("newBlockHeaders", (error, result) => {
-        if (error) {
-          console.log(error);
-          txFailed = true;
-          return;
-        }
-      })
-      .on("connected", subscriptionId => {
+      });
+      if (result.result === "tx_included") {
+        const { txHash } = result;
+        // we update saving translation status
+        savedToTheBlockchain = true;
+        savedToTheAccount = false;
         try {
-          ethereum.sendAsync(
-            {
-              method: "eth_sendTransaction",
-              params: txObject,
-              from: $web3Store.currentAddress.toLowerCase()
-            },
-            (err, receipt) => {
-              if (err) {
-                console.log(err);
-                txFailed = true;
-                return;
+          // generates unique id token
+          const idToken = await firebase.auth().currentUser.getIdToken(true);
+          if (supportType === "file") {
+            // uploads file first before saving job
+            // creates reference to storage
+            const storage = firebase.storage().ref();
+            // creates file reference
+            const ref = storage.child(
+              `${$userStore.info.uid}/${selectedFile.name}`
+            );
+            // uploads file
+            const snapshot = await ref.put(selectedFile.file);
+            //console.log(snapshot);
+            if (snapshot.state !== "success")
+              throw new Error("Couldn't upload the file!");
+            data = {
+              ...data,
+              content: {
+                contentType: snapshot.metadata.contentType,
+                fullPath: snapshot.metadata.fullPath,
+                name: snapshot.metadata.name,
+                size: snapshot.metadata.size
               }
-
-              if (receipt.result) {
-                txHash = receipt.result;
-                //console.log("tx hash:", txHash);
-              } else {
-                txFailed = true;
-                return;
-              }
-            }
-          );
-        } catch (error) {
-          console.log(error);
-          txFailed = true;
-        }
-      })
-      .on("data", async blockHeader => {
-        const blockHash = blockHeader.hash;
-        // fetches block
-        const block = await web3.eth.getBlock(blockHash);
-        // gets the transactions from block
-        const { transactions } = block;
-        if (transactions.includes(txHash)) {
-          console.log("Transaction included!:", { ...data, txHash, jobID });
-          savedToTheBlockchain = true;
-          savedToTheAccount = false;
-          newBlockUnsubscribe();
-          try {
-            // generates unique id token
-            const idToken = await firebase.auth().currentUser.getIdToken(true);
-            if (supportType === "file") {
-              // uploads file first before saving job
-              // creates reference to storage
-              const storage = firebase.storage().ref();
-              // creates file reference
-              const ref = storage.child(
-                `${$userStore.info.uid}/${selectedFile.name}`
-              );
-              // uploads file
-              const snapshot = await ref.put(selectedFile.file);
-              //console.log(snapshot);
-              if (snapshot.state !== "success")
-                throw new Error("Couldn't upload the file!");
-              data = {
-                ...data,
-                content: {
-                  contentType: snapshot.metadata.contentType,
-                  fullPath: snapshot.metadata.fullPath,
-                  name: snapshot.metadata.name
-                }
-              };
-            }
-            data = { ...data, jobID, txHash, idToken };
-            // saves job to database
-            const saveNewJob = firebase.functions().httpsCallable("saveNewJob");
-            const result = await saveNewJob(data);
-            console.log(result);
-            if (result.data === true) {
-              // job saved
-              savedToTheAccount = true;
-              setTimeout(() => (validationModal = false), 1000);
-              // updates customer's info
-              let newBalance = await web3.eth.getBalance(
-                $web3Store.currentAddress
-              );
-              newBalance = newBalance.split(".");
-              newBalance =
-                newBalance.length > 1
-                  ? newBalance[0] + "." + newBalance[1].slice(0, 2)
-                  : newBalance[0];
-              userStore.updateAccountInfo({
+            };
+          }
+          data = { ...data, jobID, txHash, idToken };
+          // saves job to database
+          const saveNewJob = firebase.functions().httpsCallable("saveNewJob");
+          const result = await saveNewJob(data);
+          console.log(result);
+          if (result.data === true) {
+            // job saved
+            savedToTheAccount = true;
+            setTimeout(() => (validationModal = false), 1000);
+            // updates customer's info
+            let newBalance = await web3.eth.getBalance(
+              $web3Store.currentAddress
+            );
+            newBalance = newBalance.split(".");
+            newBalance =
+              newBalance.length > 1
+                ? newBalance[0] + "." + newBalance[1].slice(0, 2)
+                : newBalance[0];
+            /*userStore.updateAccountInfo({
                 ...$userStore.info,
                 totalPaid:
                   parseInt($userStore.info.totalPaid) + parseInt(data.price),
                 lastJob: jobID,
                 jobs: [...$userStore.info.jobs, jobID],
                 balance: newBalance
-              });
-              // if everything is fine, we send customer back to their account page
-              push("/account");
-            } else {
-              // error
-              validationModal = false;
-              eventsStore.toggleWarningModal(
-                `An error has occurred. Please contact customer service with the following transaction number: ${txHash}`
-              );
-            }
-          } catch (error) {
-            console.log(error);
+              });*/
+            // if everything is fine, we send customer back to their account page
+            setTimeout(() => push("/account"), 600);
+          } else {
+            // error
             validationModal = false;
-            let msg = "";
-            if (!txHash) {
-              msg =
-                "Your order could not be saved on the blockchain.<br><br>Please try again later";
-            } else {
-              msg = `Your order could not be added to your account. Please refresh the page.<br><br>If the problem persists, please contact customer service with the following transaction number: ${txHash}`;
-            }
-            eventsStore.toggleWarningModal(msg);
+            reviewJob = true;
+            eventsStore.toggleWarningModal(
+              `An error has occurred. Please contact customer service with the following transaction number: ${txHash}`
+            );
           }
+        } catch (error) {
+          console.log(error);
+          validationModal = false;
+          reviewJob = true;
+          let msg = "";
+          if (!txHash) {
+            msg =
+              "Your order could not be saved on the blockchain.<br><br>Please try again later";
+          } else {
+            msg = `Your order could not be added to your account. Please refresh the page.<br><br>If the problem persists, please contact customer service with the following transaction number: ${txHash}`;
+          }
+          eventsStore.toggleWarningModal(msg);
         }
-      })
-      .on("error", error => {
-        console.log(error);
-        txFailed = true;
-      });
+      } else {
+        throw new Error(result);
+      }
+    } catch (error) {
+      console.log(error);
+      txFailed = true;
+      validationModal = false;
+      reviewJob = true;
+      return;
+    }
   };
 
   onMount(async () => {
