@@ -4,6 +4,7 @@
   import firebase from "firebase";
   import moment from "moment";
   import { push } from "svelte-spa-router";
+  import uuidv4 from "uuid/v4";
   import Navbar from "../Navbar/Navbar.svelte";
   import web3Store from "../stores/web3-store";
   import userStore from "../stores/user-store";
@@ -16,8 +17,12 @@
   import Button from "../Components/Button.svelte";
   import Modal from "../Components/Modal.svelte";
   import { sendTxAndWait, errorMessage } from "../utils/sendTxAndWait";
+  import { jobStatuses } from "../utils/utils";
 
   export let params = {};
+  let loading = true;
+  let loadingSubmit = false;
+  let wrongSmStatus = false;
   let jobID = undefined;
   let translFetched = false;
   let translationDetails = { supportType: "" };
@@ -33,6 +38,13 @@
   let pendingCancelation = false;
   let cancelationError = undefined;
   let cancelationErrorMsg = "";
+  let submitTransModal = false;
+  let pendingSubmitTransTx = true;
+  let pendingSubmitTransAccount = false;
+  let pendingSubmitTransSuccess = false;
+  let pendingSubmitTransError = false;
+  let pendingSubmitTransErrorMessage = "";
+  let submitTransModalType = "info";
 
   const validateComment = async event => {
     if (event.keyCode === 13) {
@@ -132,6 +144,110 @@
     }
   };
 
+  const submitTranslation = async event => {
+    submitTransModal = true;
+    loadingSubmit = true;
+    let data = { ...event.detail };
+    // updating translation status in the blockchain
+    const {
+      web3,
+      contractInstance,
+      currentAddress,
+      contractAddress
+    } = $web3Store;
+    try {
+      /*const result = await sendTxAndWait({
+        web3,
+        contractInstance,
+        currentAddress,
+        contractAddress,
+        method: "deliverJob",
+        methodParameters: [jobID]
+      });*/
+      const result = { result: "tx_included" };
+      if (result.result === "tx_included") {
+        // if file is sent
+        if (data.type === "file") {
+          data = { ...data, fileName: uuidv4() };
+          // uploads file first before saving job
+          // creates reference to storage
+          const storage = firebase.storage().ref();
+          // creates file reference
+          const ref = storage.child(
+            `${translationDetails.content.folder}/delivered/${data.fileName}`
+          );
+          // uploads file
+          const snapshot = await ref.put(data.file.file);
+          //console.log(snapshot);
+          if (snapshot.state !== "success")
+            throw new Error("Couldn't upload the file!");
+          delete data.file;
+        } else if (data.type === "text") {
+          let text = translationDetails.content;
+          data.translationGrid.forEach(segment => {
+            text = text.replace(segment.input, segment.output);
+          });
+          delete data.translationGrid;
+          data = { ...data, text };
+        } else {
+          throw new Error("Unexpected translation type");
+        }
+        // if transaction was included, we send the file or text and update the translation in firebase
+        pendingSubmitTransTx = false;
+        pendingSubmitTransAccount = true;
+        // if everything is OK, we update database
+        const submitCompletedTranslation = firebase
+          .functions()
+          .httpsCallable("submitCompletedTranslation"); // generates unique id token
+        const idToken = await firebase.auth().currentUser.getIdToken(true);
+        const result = await submitCompletedTranslation({
+          jobID,
+          idToken,
+          ...data
+        });
+        //console.log(result);
+        if (result.data.error === false) {
+          loading = false;
+          pendingSubmitTransTx = false;
+          pendingSubmitTransAccount = false;
+          pendingSubmitTransError = false;
+          loadingSubmit = false;
+          pendingSubmitTransSuccess = true;
+          setTimeout(() => {
+            submitTransModal = false;
+            push("/market");
+          }, 1500);
+        } else {
+          if (result.data.msg) {
+            throw new Error({ result: "firebase_error", errorMsg: msg });
+          } else {
+            throw new Error({
+              result: "firebase_error",
+              errorMsg:
+                "An error has occurred while saving the job on the server!"
+            });
+          }
+        }
+      } else {
+        throw new Error(result);
+      }
+    } catch (error) {
+      console.log(error);
+      // if transaction did not go through
+      loadingSubmit = false;
+      pendingSubmitTransTx = false;
+      pendingSubmitTransAccount = false;
+      pendingSubmitTransError = true;
+      pendingSubmitTransErrorMessage = errorMessage(error);
+      // if error was returned
+      if (error.errorMsg) {
+        pendingSubmitTransErrorMessage += `: ${error.errorMsg}`;
+      } else if (error.message) {
+        pendingSubmitTransErrorMessage += `: ${error.message}`;
+      }
+    }
+  };
+
   onMount(async () => {
     // checks if job id has been provided
     if (params.id) {
@@ -165,29 +281,11 @@
         }
       } catch (err) {
         console.log(err);
+        loading = false;
         eventsStore.toggleWarningModal(
           "An error has occurred while fetching the job!"
         );
       }
-      /*setTimeout(() => {
-        translationDetails = {
-          comments: [
-            { text: "test", timestamp: 1577022469852, from: "customer" }
-          ],
-          content:
-            "ethereum.autoRefreshOnNetworkChange (To Be Removed) \nThis will be removed on January 13, 2020. At this time, MetaMask will also stop reloading the page on network changes. Click here for more details.\n\nWhen the network is changed, MetaMask will reload any pages that have made requests to the provider. This automatic reload behavior will be removed in a future release of MetaMask, but in the meantime it can be disabled with this flag.\n\nTo disable auto-refresh on a network change you can do:\n\nethereum.autoRefreshOnNetworkChange = false;\nThis can be toggled on or off at any time.\n\nNote: Setting this flag to true results in the default behavior, which is subject to change. If your site relies upon MetaMask reloading it upon network change, you will need to trigger the reload yourself in a networkChanged event handler to ensure it continues to work with future releases.\n\nethereum.on(eventName, callback) \nThe provider supports listening for some events:\n\naccountsChanged, returns updated account array.\nnetworkChanged, returns network ID string.\nExample ",
-          contentType: "Generic Content",
-          duedate: 86400,
-          extraQuality: false,
-          fromLang: "eng",
-          toLang: "fra",
-          jobType: "translation",
-          price: 42660000000000000,
-          supportType: "text",
-          timestamp: 1577022487748,
-          status: "waiting"
-        };
-      }, 1500);*/
       translFetched = true;
     }
     // fetches info from blockchain
@@ -213,6 +311,18 @@
             parseInt(translationDetails.duedate * 1000)
         ).fromNow();
       }, 60000);
+    }
+    // displays warning message to translator if translation doesnt have "accepted" status
+    if (
+      smContractInfo &&
+      parseInt(smContractInfo.status) > 1 &&
+      !!translationDetails.timestamp &&
+      !wrongSmStatus
+    ) {
+      wrongSmStatus = true;
+      eventsStore.toggleWarningModal(
+        `<p>This translation doesn't have the proper status on the blockchain.</p><p>If you continue, you may not be paid for this job!</p><p>Please contact customer service with the reference number, thank you.</p><p>Ref: ${jobID}</p>`
+      );
     }
   });
 </script>
@@ -321,6 +431,12 @@
   .modal-buttons .button {
     margin: 0px 10px;
     padding: 0px;
+  }
+
+  .submit-file-loader {
+    margin: 0 auto;
+    width: 0%;
+    padding-top: 10px;
   }
 </style>
 
@@ -441,6 +557,47 @@
     </div>
   </Modal>
 {/if}
+{#if submitTransModal}
+  <Modal
+    type={submitTransModalType}
+    size="small"
+    on:close={() => (submitTransModal = false)}>
+    <div slot="title">Submit Translation</div>
+    <div slot="body">
+      {#if pendingSubmitTransTx}
+        <p>
+          The translation status is being updated on the blockchain, please
+          wait.
+        </p>
+        <p>
+          This may take a couple of minutes, do not close or refresh this page.
+        </p>
+      {:else if pendingSubmitTransAccount}
+        <p>
+          The translation status has been successfully updated on the
+          blockchain!
+        </p>
+        <p>
+          The translation is now being saved in your account, please wait, do
+          not close or refresh this page.
+        </p>
+      {:else if pendingSubmitTransSuccess}
+        <p>Your translation has been successfully submitted!</p>
+        <p>Thank you for your collaboration.</p>
+        <p>
+          <img src="images/thumbs-up.svg" alt="thumbs-up" />
+        </p>
+      {:else if pendingSubmitTransError}
+        <p>An error has occurred, please try again later.</p>
+      {/if}
+      {#if loadingSubmit}
+        <div class="submit-file-loader">
+          <div class="dot-typing" />
+        </div>
+      {/if}
+    </div>
+  </Modal>
+{/if}
 <main>
   <div class="transl-body">
     {#if !jobID}
@@ -499,7 +656,7 @@
                 class="new-comment-container">
                 <textarea
                   rows="2"
-                  placeholder="Enter your comment here..."
+                  placeholder="Enter your comment here, press Enter to save..."
                   maxlength="200"
                   disabled={disableNewComment}
                   on:keydown={validateComment}
@@ -509,18 +666,23 @@
             {#if translationDetails.supportType === 'text'}
               <TranslationGrid
                 content={translationDetails.content}
-                on:cancel={() => (cancelModal = true)} />
+                on:cancel={() => (cancelModal = true)}
+                on:submitText={submitTranslation} />
             {:else}
               <TranslationFile
                 content={translationDetails.content}
-                on:cancel={() => (cancelModal = true)} />
+                {smContractInfo}
+                on:cancel={() => (cancelModal = true)}
+                on:submitFile={submitTranslation} />
             {/if}
           </div>
-        {:else}
+        {:else if loading}
           <div class="loading-transl">
             <p>Loading translation</p>
             <div class="dot-typing" />
           </div>
+        {:else}
+          <p>You are not allowed to view this translation.</p>
         {/if}
       </div>
     {/if}

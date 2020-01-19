@@ -5,7 +5,9 @@
   import Navbar from "../../../Navbar/Navbar.svelte";
   import web3Store from "../../../stores/web3-store";
   import userStore from "../../../stores/user-store";
-  import { shortenHash } from "../../../utils/functions";
+  import { shortenHash, fromWeiToEther } from "../../../utils/functions";
+  import ActiveTranslationEntry from "./ActiveTranslationEntry.svelte";
+  import PendingTranslationEntry from "./PendingTranslationEntry.svelte";
 
   let langPairFrom = undefined;
   let langPairTo = undefined;
@@ -31,21 +33,8 @@
     justify-content: space-between;
   }
 
-  .active-translations p {
-    margin: 0px 0px 10px 10px;
-  }
-
-  .active-translations p:first-child {
-    margin-left: 0px;
-  }
-
-  .active-translations p a {
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .active-translations p a:hover {
-    font-style: italic;
+  .user-translations {
+    width: 100% !important;
   }
 
   /*.lang-pair-choice {
@@ -152,24 +141,31 @@
           {`${langs.where('3', $userStore.info.languagePairs[0].from).name} => ${langs.where('3', $userStore.info.languagePairs[0].to).name}`}
         </div>
       </div>
-      <div class="account-card__content">
-        <div class="active-translations">
+      <div class="account-card__content" style="width:100%">
+        <div class="user-translations">
           <p>Active Translations</p>
-          {#each $userStore.info.activeTranslations as transl}
-            <p>
-              <a href={`/#/translate/${transl}`}>
-                {shortenHash(transl)}
-                <img
-                  src="images/external-link.svg"
-                  class="external-link"
-                  alt="external link" />
-              </a>
-            </p>
+          {#each Object.keys($userStore.info.activeTranslations) as transl}
+            <ActiveTranslationEntry
+              translHash={transl}
+              transl={$userStore.info.activeTranslations[transl]}
+              web3={$web3Store.web3} />
           {:else}
-            <p>No active translation</p>
+            <div>No active translation</div>
           {/each}
         </div>
-        <div>{$userStore.info.activeTranslations.length}</div>
+      </div>
+      <div class="account-card__content">
+        <div class="user-translations">
+          <div>Pending Translations</div>
+          {#each Object.keys($userStore.info.pendingTranslations) as transl}
+            <PendingTranslationEntry
+              translHash={transl}
+              transl={$userStore.info.pendingTranslations[transl]}
+              web3={$web3Store.web3} />
+          {:else}
+            <p>No pending translation</p>
+          {/each}
+        </div>
       </div>
       <!-- <div class="account-card__content">
         <div>Add a second language pair</div>

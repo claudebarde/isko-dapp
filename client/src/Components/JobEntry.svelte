@@ -3,28 +3,13 @@
   import { createEventDispatcher } from "svelte";
   import langs from "langs";
   import moment from "moment";
-  import { shortenHash } from "../utils/functions";
+  import { shortenHash, checkJobPriority } from "../utils/functions";
   import userStore from "../stores/user-store";
 
   export let job;
 
   const dispatch = createEventDispatcher();
   let showComments = false;
-
-  const checkPriority = ({ duedate, timestamp }) => {
-    const timeLeft =
-      parseInt(timestamp) + parseInt(duedate * 1000) - Date.now();
-    //console.log(timeLeft, id);
-    if (timeLeft <= 18000) {
-      // less than 5 hours or expired
-      return "high-priority-job";
-    } else if (timeLeft > 18000 && timeLeft < 172800000) {
-      // between 5 hours and 48 hours
-      return "medium-priority-job";
-    } else {
-      return "low-priority-job";
-    }
-  };
 
   const claimJob = () => dispatch("claimJob", job.id);
 </script>
@@ -105,7 +90,7 @@
 </style>
 
 <div
-  class={`job ${checkPriority({
+  class={`job ${checkJobPriority({
     duedate: job.duedate,
     timestamp: job.timestamp
   })}`}

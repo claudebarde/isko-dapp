@@ -104,7 +104,7 @@
       .map(key => correctInfo[key])
       .reduce((a, b) => a & b);
     // modify button type
-    if (!!check && !insufficientFunds) {
+    if ((!!check && !insufficientFunds) || (!!check && !translator)) {
       buttonType = "success";
     } else {
       buttonType = "disabled";

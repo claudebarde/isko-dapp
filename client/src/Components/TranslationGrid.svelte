@@ -38,6 +38,7 @@
 
   const submitJob = () => {
     // checks every segment has a translation
+    dispatch("submitText", { type: "text", translationGrid });
   };
 
   onMount(() => {

@@ -2,6 +2,7 @@
   import langs from "langs";
   import { push } from "svelte-spa-router";
   import firebase from "firebase";
+  import uuidv4 from "uuid/v4";
   import Navbar from "../Navbar/Navbar.svelte";
   import web3Store from "../stores/web3-store";
   import userStore from "../stores/user-store";
@@ -12,6 +13,7 @@
   import { slide } from "svelte/transition";
   import { sendTxAndWait } from "../utils/sendTxAndWait";
   import { validMIMEtypes } from "../utils/utils";
+  import { validateFile } from "../utils/functions";
 
   // only customer account have access to this page
   if ($userStore.accountType && $userStore.accountType !== "customer")
@@ -63,48 +65,21 @@
   let newBlocksSubscription = undefined;
   let txFailed = false;
 
-  const validateSize = event => {
-    const file = event.target.files[0];
-    if (file && file.size / 1024 / 1024 <= 1) {
-      if (validMIMEtypes.includes(file.type)) {
-        // not more than 1 MB
-        const fileSize = file.size; // in bytes
-        const fileType = file.type;
-        let chosenFileName = file.name;
-        if (chosenFileName.length >= 20) {
-          const arr = file.name.split(".");
-          const extension = arr[arr.length - 1];
-          chosenFileName = chosenFileName.slice(0, 15) + "(...)." + extension;
-        }
-
-        selectedFile = {
-          size: fileSize,
-          type: fileType,
-          name: $web3Store.web3.utils.sha3(chosenFileName + Date.now()),
-          file
-        };
-        const reader = new FileReader();
-        // file reading finished successfully
-        reader.addEventListener("load", event => {
-          const text = event.target.result;
-          // contents of the file
-          //console.log(text);
-          textInput = text;
-        });
-        // read as text file
-        reader.readAsText(file);
-      } else {
-        console.log("Unsupported file type");
-      }
-    } else {
-      console.log("File is over 1 MB");
-    }
+  const checkFile = event => {
+    const output = validateFile(event.target.files[0]);
+    selectedFile = { ...output.selectedFile };
+    textInput = output.textInput;
   };
 
   // watches change in job type to adapt price for file translation
   $: if (jobType || extraQuality || selectedFile || textInput) {
     if (supportType === "file" && selectedFile.type) {
-      const price = selectedFile.size * 0.0004;
+      let price = 0;
+      if (extraQuality) {
+        price = selectedFile.size * 0.0006;
+      } else {
+        price = selectedFile.size * 0.0004;
+      }
       filePrice = price / ethPrice;
       filePrice = Math.round(filePrice * 10000) / 10000;
     } else if (supportType === "text") {
@@ -219,17 +194,6 @@
       );
       return;
     }
-    // checks if window has property btoa
-    let encodeToBase64;
-    if (!!window.btoa === false) {
-      validationModal = false;
-      eventsStore.toggleWarningModal(
-        "The `btoa` property is missing from the window object.<br />This may happen if you are using an older browser.<br />Please update to a newer version."
-      );
-      return;
-    } else {
-      encodeToBase64 = window.btoa;
-    }
 
     const {
       web3,
@@ -257,7 +221,7 @@
     savedToTheBlockchain = false; // display message
     reviewJob = false; // display progression
     // creates unique id
-    let jobID = encodeToBase64(web3.utils.sha3(textInput)).slice(2, 30);
+    let jobID = uuidv4();
     // creates and sends transaction
     try {
       const result = await sendTxAndWait({
@@ -462,6 +426,18 @@
   .comment-input p {
     margin: 20px 0px 5px 0px;
   }
+
+  .review-job {
+    display: grid;
+    grid-template-columns: 40% 60%;
+    justify-items: stretch;
+    grid-gap: 0px 0px;
+  }
+
+  .review-job div {
+    border-bottom: solid 1px #cbd5e0;
+    padding: 10px;
+  }
 </style>
 
 {#if validationModal}
@@ -470,7 +446,36 @@
     <div slot="body">
       {#if reviewJob}
         <!-- Customer reviews new job -->
-        <div class="inputs">
+        <div class="review-job">
+          <div>Type of job</div>
+          <div>{jobType[0].toUpperCase() + jobType.slice(1)}</div>
+          <div>From {langs.where('3', fromLang).name}</div>
+          <div>To {langs.where('3', toLang).name}</div>
+          <div>Content Type</div>
+          <div>{contentType}</div>
+          <div>Comments</div>
+          <div>{!!comments ? `"${comments}"` : 'No comment'}</div>
+          <div>Due in</div>
+          <div>
+            {#if duedate === 60 * 60}
+              1 hour
+            {:else if duedate === 60 * 60 * 5}
+              5 hours
+            {:else if duedate === 60 * 60 * 12}
+              12 hours
+            {:else if duedate === 60 * 60 * 24}
+              24 hours
+            {:else if duedate === 60 * 60 * 24 * 2}
+              2 days
+            {:else if duedate === 60 * 60 * 24 * 4}
+              4 days
+            {:else if duedate === 60 * 60 * 24 * 7}1 week{/if}
+          </div>
+          <div>Total Price</div>
+          <div>{supportType === 'text' ? textPrice : filePrice} ethers</div>
+        </div>
+
+        <!--<div class="inputs">
           <p>Type of job: {jobType}</p>
           <p>
             From {langs.where('3', fromLang).name} to {langs.where('3', toLang).name}
@@ -500,7 +505,7 @@
           <p>
             Total Price: {supportType === 'text' ? textPrice : filePrice} ethers
           </p>
-        </div>
+        </div>-->
         <div class="footer">
           <Button type="success" text="Order" on:click={validateJob} />
         </div>
@@ -674,8 +679,8 @@
             type="file"
             id="file-input"
             name="file-input"
-            accept=".doc, .docx, .xls, .xlsx, .pdf, .txt, .rtf"
-            on:change={validateSize} />
+            accept=".doc, .docx, .xls, .xlsx, .pdf, .txt, .rtf, .csv"
+            on:change={checkFile} />
           <label for="file-input">
             <h4 style="cursor:pointer">{selectedFile.name}</h4>
           </label>
