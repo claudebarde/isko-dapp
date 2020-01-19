@@ -1,6 +1,10 @@
-pragma solidity 0.6.0;
+pragma solidity 0.5.16;
 
-contract IskoEth {
+// Import base Initializable contract
+import "@openzeppelin/upgrades/contracts/Initializable.sol";
+import { SafeMath } from "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
+
+contract IskoEth is Initializable {
     address payable private owner;
     uint public fee;
     enum JobStatus { Available, Accepted, Delivered, Review, PaidOut , Cancelled }
@@ -27,21 +31,21 @@ contract IskoEth {
         _;
     }
     
-    constructor () public {
-        owner = msg.sender;
+    function initialize (address payable sender) public {
+        owner = sender;
         fee = 10; // fee in percentage
         generalRevenue = 0;
     }
     
     // adds a new translator
-    function addNewTranslator () payable public {
+    function addNewTranslator () public payable {
         require(translators[msg.sender] == 0, "This translator already exists!");
         require(msg.value > 0, "There is no ether sent with this transaction.");
         translators[msg.sender] = msg.value;
     }
     
     // returns translator balance
-    function returnTranslator (address _translator) view public returns (uint) {
+    function returnTranslator (address _translator) public view returns (uint) {
         return translators[_translator];
     }
     
@@ -108,7 +112,7 @@ contract IskoEth {
     // 5 days after job delivery, job is available to be paid out
     function payOutJob (string memory _id) public validateRequest(_id) returns (uint) {
         // verifies it has been at least 5 days since delivering
-        require(jobs[_id].deliveredOn + 5 days > now);
+        require(jobs[_id].deliveredOn + 5 days > now, "This job is not available for payment.");
         // verifies right status for the job
         require(jobs[_id].status == JobStatus.Delivered || jobs[_id].status == JobStatus.Review, "This job hasn't been delivered yet.");
         // changes status of job
@@ -148,6 +152,6 @@ contract IskoEth {
     }
     
     // in case of direct payments
-    receive() external payable {}
+    //receive() external payable {}
     
 }
