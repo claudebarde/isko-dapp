@@ -4,7 +4,7 @@ pragma solidity 0.5.16;
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
 import { SafeMath } from "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 
-contract IskoEth is Initializable {
+contract IskoDapp is Initializable {
     address payable private owner;
     uint public fee;
     enum JobStatus { Available, Accepted, Delivered, Review, PaidOut , Cancelled }
@@ -30,6 +30,11 @@ contract IskoEth is Initializable {
         require(jobs[_id].timestamp > 0, "This job doesn't exist!");
         _;
     }
+
+    event NewJob(string id, uint price); // event when new job is created
+    event JobCanceledByTranslator(string id); // translator cancel job, job is now available
+    event JobPayOut(string id, uint price); // event when translator asks for payout
+    event JobCanceledByCustomer(string id); // when customer cancels a job
     
     function initialize (address payable sender) public {
         owner = sender;
@@ -69,21 +74,22 @@ contract IskoEth is Initializable {
         // we push the job into the job list
         jobs[_id] = newJob;
         // we increment general revenue variable
-        generalRevenue = generalRevenue + localFee;
+        generalRevenue = SafeMath.add(generalRevenue, localFee);
+        // emit event
+        emit NewJob(_id, newJob.price);
     } 
     
     // translator accepts job from job market
-    function acceptJob (string memory _id) public validateRequest(_id) returns (bool) {
+    function acceptJob (string memory _id) public validateRequest(_id) {
         // checks job is still available
         require(jobs[_id].status == JobStatus.Available, "This job is no longer available");
         // job data are changed
         jobs[_id].status = JobStatus.Accepted;
         jobs[_id].translator = msg.sender;
-        return true;
     }
     
     // translator cancels job
-    function cancelJob (string memory _id) public returns (bool) {
+    function cancelJob (string memory _id) public {
         // must be translator who accepted the job or owner
         require(jobs[_id].translator == msg.sender || msg.sender == owner, "You are not allowed to cancel this job!");
         // job cannot be in other state but "accepted"
@@ -91,16 +97,16 @@ contract IskoEth is Initializable {
         // reset job info
         jobs[_id].status = JobStatus.Available;
         jobs[_id].translator = address(0);
-        return true;
+        // emit event to inform about job availability
+        emit JobCanceledByTranslator(_id);
     }
     
     // translator delivers job
-    function deliverJob (string memory _id) public validateRequest(_id) returns (bool) {
+    function deliverJob (string memory _id) public validateRequest(_id) {
         require(jobs[_id].status == JobStatus.Accepted, "This job doesn't have the required status!");
         // changes status of job
         jobs[_id].status = JobStatus.Delivered;
         jobs[_id].deliveredOn = now;
-        return true;
     }
     
     // customer asks for job review
@@ -110,7 +116,7 @@ contract IskoEth is Initializable {
     }
     
     // 5 days after job delivery, job is available to be paid out
-    function payOutJob (string memory _id) public validateRequest(_id) returns (uint) {
+    function payOutJob (string memory _id) public validateRequest(_id) {
         // verifies it has been at least 5 days since delivering
         require(jobs[_id].deliveredOn + 5 days > now, "This job is not available for payment.");
         // verifies right status for the job
@@ -119,7 +125,8 @@ contract IskoEth is Initializable {
         jobs[_id].status = JobStatus.PaidOut;
         // increase translator balance
         translators[msg.sender] = translators[msg.sender] + jobs[_id].price;
-        return translators[msg.sender];
+        // emit event
+        emit JobPayOut(_id, jobs[_id].price);
     }
     
     // cancels and refunds job
@@ -130,6 +137,14 @@ contract IskoEth is Initializable {
         // refunds price
         job.customer.transfer(job.price);
         // removes job
+        job.customer = address(0x0);
+        job.price = 0;
+        job.timestamp = 0;
+        job.status = JobStatus.Available;
+        job.translator = address(0x0);
+        job.deliveredOn = 0;
+        // emit event about job cancelation
+        emit JobCanceledByCustomer(_id);
     }
     
     // pays freelancer on request

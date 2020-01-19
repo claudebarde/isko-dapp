@@ -14,7 +14,7 @@
   import Modal from "../Components/Modal.svelte";
   import Button from "../Components/Button.svelte";
   import { link, push, location } from "svelte-spa-router";
-  import contractInterface from "../../../build/contracts/IskoEth.json";
+  import contractInterface from "../../../build/contracts/IskoDapp.json";
   import { shortenHash } from "../utils/functions";
   import "firebase/firestore";
 

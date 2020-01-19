@@ -1,6 +1,8 @@
 {
   "manifestVersion": "2.2",
-  "contracts": {},
+  "contracts": {
+    "IskoDapp": "IskoDapp"
+  },
   "dependencies": {},
   "name": "isko-dapp",
   "version": "1.0.0",
