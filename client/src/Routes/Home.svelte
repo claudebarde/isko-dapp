@@ -1,5 +1,6 @@
 <script>
   import firebase from "firebase";
+  import { push } from "svelte-spa-router";
   import Navbar from "../Navbar/Navbar.svelte";
   import Alert from "../Components/Alert.svelte";
   import Button from "../Components/Button.svelte";
@@ -97,7 +98,10 @@
     <div class="text-card">
       <h1>Get your translation done!</h1>
       <br />
-      <Button text={'Post a translation job'} type="teal" />
+      <Button
+        text={'Post a translation job'}
+        type="teal"
+        on:click={() => push('/order')} />
     </div>
     <div class="text-card__image">
       <img

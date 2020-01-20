@@ -6,7 +6,7 @@
   import { push } from "svelte-spa-router";
   import userStore from "../../../stores/user-store.js";
   import web3Store from "../../../stores/web3-store.js";
-  import { shortenHash } from "../../../utils/functions";
+  import { shortenHash, fromWeiToEther } from "../../../utils/functions";
   import Modal from "../../Modal.svelte";
   import Button from "../../Button.svelte";
 
@@ -106,6 +106,36 @@
     width: 28%;
     margin-right: 3px;
   }
+
+  .date {
+    font-size: 0.75rem;
+    color: #a0aec0;
+  }
+
+  .jobs-history {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /*Colors for job status*/
+  .status-available {
+    color: #f56565;
+  }
+  .status-accepted {
+    color: #ed8936;
+  }
+  .status-delivered {
+    color: #48bb78;
+  }
+  .status-review {
+    color: #9f7aea;
+  }
+  .status-paidout {
+    color: #ed64a6;
+  }
+  .status-cancelled {
+    color: #a0aec0;
+  }
 </style>
 
 {#if $userStore.info}
@@ -120,12 +150,28 @@
         <div>{shortenHash($userStore.info.uid)}</div>
       </div>
       <div class="account-card__content">
-        <div>Last Job</div>
-        <div>{shortenHash($userStore.info.lastJob)}</div>
+        <div>Total amount paid</div>
+        <div>
+          {$web3Store.web3.utils.fromWei($userStore.info.totalPaid.toString(), 'ether')}
+          ethers
+        </div>
       </div>
       <div class="account-card__content">
         <div>Payment History</div>
-        <div>Payments</div>
+        <div>
+          {#if $userStore.info}
+            {#if $userStore.info.jobs.length <= 5}
+              {#each $userStore.info.jobs.slice(0, 6) as job}
+                <div>
+                  Ξ{fromWeiToEther($web3Store.web3, job.price)}
+                  <span class="date">
+                    {moment(job.timestamp).format('MM/DD/YYYY')}
+                  </span>
+                </div>
+              {/each}
+            {:else}Long history{/if}
+          {:else}Loading...{/if}
+        </div>
       </div>
     </div>
     <div class="account-card">
@@ -144,11 +190,8 @@
         <div>{$userStore.info.jobs.length}</div>
       </div>
       <div class="account-card__content">
-        <div>Total amount paid</div>
-        <div>
-          {$web3Store.web3.utils.fromWei($userStore.info.totalPaid.toString(), 'ether')}
-          ethers
-        </div>
+        <div>Last Job</div>
+        <div>{shortenHash($userStore.info.lastJob)}</div>
       </div>
     </div>
     <div class="account-card">
@@ -156,6 +199,25 @@
         <div>Create new job</div>
         <div>
           <Button type="success" text="Start" on:click={() => push('/order')} />
+        </div>
+      </div>
+      <div class="account-card__content">
+        <div>Jobs History</div>
+        <div class="jobs-history">
+          {#each $userStore.info.jobs.slice(0, 6) as job}
+            <div>
+              [
+              <strong
+                class={job.status ? `status-${job.status}` : ''}
+                title={`Status: ${job.status}`}>
+                {shortenHash(job.id)}
+              </strong>
+              ] Ξ{fromWeiToEther($web3Store.web3, job.price)}
+              <span class="date">
+                {moment(job.timestamp).format('MM/DD/YYYY')}
+              </span>
+            </div>
+          {:else}No job history{/each}
         </div>
       </div>
     </div>

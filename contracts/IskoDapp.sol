@@ -7,7 +7,7 @@ import { SafeMath } from "@openzeppelin/contracts-ethereum-package/contracts/mat
 contract IskoDapp is Initializable {
     address payable private owner;
     uint public fee;
-    enum JobStatus { Available, Accepted, Delivered, Review, PaidOut , Cancelled }
+    enum JobStatus { Available, Accepted, Delivered, Review, PaidOut, Cancelled }
     struct Job {
         address payable customer;
         uint price;
@@ -33,6 +33,7 @@ contract IskoDapp is Initializable {
 
     event NewJob(string id, uint price); // event when new job is created
     event JobCanceledByTranslator(string id); // translator cancel job, job is now available
+    event DeliverJob(string id); // when translator finishes a job
     event JobPayOut(string id, uint price); // event when translator asks for payout
     event JobCanceledByCustomer(string id); // when customer cancels a job
     
@@ -107,6 +108,8 @@ contract IskoDapp is Initializable {
         // changes status of job
         jobs[_id].status = JobStatus.Delivered;
         jobs[_id].deliveredOn = now;
+        // new job delivered
+        emit DeliverJob(_id);
     }
     
     // customer asks for job review

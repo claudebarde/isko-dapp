@@ -438,357 +438,349 @@
     border-bottom: solid 1px #cbd5e0;
     padding: 10px;
   }
+
+  .no-access {
+    text-align: center;
+  }
+
+  .picture {
+    width: 50%;
+    margin-bottom: 40px;
+  }
 </style>
 
-{#if validationModal}
-  <Modal type="info" size="small" on:close={() => (validationModal = false)}>
-    <div slot="title">New Job Creation</div>
-    <div slot="body">
-      {#if reviewJob}
-        <!-- Customer reviews new job -->
-        <div class="review-job">
-          <div>Type of job</div>
-          <div>{jobType[0].toUpperCase() + jobType.slice(1)}</div>
-          <div>From {langs.where('3', fromLang).name}</div>
-          <div>To {langs.where('3', toLang).name}</div>
-          <div>Content Type</div>
-          <div>{contentType}</div>
-          <div>Comments</div>
-          <div>{!!comments ? `"${comments}"` : 'No comment'}</div>
-          <div>Due in</div>
-          <div>
-            {#if duedate === 60 * 60}
-              1 hour
-            {:else if duedate === 60 * 60 * 5}
-              5 hours
-            {:else if duedate === 60 * 60 * 12}
-              12 hours
-            {:else if duedate === 60 * 60 * 24}
-              24 hours
-            {:else if duedate === 60 * 60 * 24 * 2}
-              2 days
-            {:else if duedate === 60 * 60 * 24 * 4}
-              4 days
-            {:else if duedate === 60 * 60 * 24 * 7}1 week{/if}
+{#if !firebase.auth().currentUser}
+  <main>
+    <div class="container no-access">
+      <img src="images/undraw_ethereum.svg" alt="ethereum" class="picture" />
+      <p>You must be logged in to create a new job!</p>
+    </div>
+  </main>
+{:else}
+  {#if validationModal}
+    <Modal type="info" size="small" on:close={() => (validationModal = false)}>
+      <div slot="title">New Job Creation</div>
+      <div slot="body">
+        {#if reviewJob}
+          <!-- Customer reviews new job -->
+          <div class="review-job">
+            <div>Type of job</div>
+            <div>{jobType[0].toUpperCase() + jobType.slice(1)}</div>
+            <div>From {langs.where('3', fromLang).name}</div>
+            <div>To {langs.where('3', toLang).name}</div>
+            <div>Content Type</div>
+            <div>{contentType}</div>
+            <div>Comments</div>
+            <div>{!!comments ? `"${comments}"` : 'No comment'}</div>
+            <div>Due in</div>
+            <div>
+              {#if duedate === 60 * 60}
+                1 hour
+              {:else if duedate === 60 * 60 * 5}
+                5 hours
+              {:else if duedate === 60 * 60 * 12}
+                12 hours
+              {:else if duedate === 60 * 60 * 24}
+                24 hours
+              {:else if duedate === 60 * 60 * 24 * 2}
+                2 days
+              {:else if duedate === 60 * 60 * 24 * 4}
+                4 days
+              {:else if duedate === 60 * 60 * 24 * 7}1 week{/if}
+            </div>
+            <div>Total Price</div>
+            <div>{supportType === 'text' ? textPrice : filePrice} ethers</div>
           </div>
-          <div>Total Price</div>
-          <div>{supportType === 'text' ? textPrice : filePrice} ethers</div>
-        </div>
-
-        <!--<div class="inputs">
-          <p>Type of job: {jobType}</p>
-          <p>
-            From {langs.where('3', fromLang).name} to {langs.where('3', toLang).name}
-          </p>
-        </div>
-        <div class="inputs">
-          <p>Content Type: {contentType}</p>
-          <p>"{!!comments ? comments : '--'}"</p>
-        </div>
-        <div class="inputs">
-          <p>
-            Due in
-            {#if duedate === 60 * 60}
-              1 hour
-            {:else if duedate === 60 * 60 * 5}
-              5 hours
-            {:else if duedate === 60 * 60 * 12}
-              12 hours
-            {:else if duedate === 60 * 60 * 24}
-              24 hours
-            {:else if duedate === 60 * 60 * 24 * 2}
-              2 days
-            {:else if duedate === 60 * 60 * 24 * 4}
-              4 days
-            {:else if duedate === 60 * 60 * 24 * 7}1 week{/if}
-          </p>
-          <p>
-            Total Price: {supportType === 'text' ? textPrice : filePrice} ethers
-          </p>
-        </div>-->
-        <div class="footer">
-          <Button type="success" text="Order" on:click={validateJob} />
-        </div>
-      {:else}
-        <!-- New job has been approved -->
-        {#if savedToTheBlockchain}
-          <p>1- Your order is successfully saved in the blockchain!</p>
-        {/if}
-        {#if savedToTheAccount}
-          <p>2- Your order is successfully saved in your account!</p>
-        {/if}
-        {#if savedToTheBlockchain === false}
-          <div class="modal-body__content">
-            <p>
-              1- Saving your order to the blockchain, please don't leave or
-              refresh the page.
+          <div class="footer">
+            <Button type="success" text="Order" on:click={validateJob} />
+          </div>
+        {:else}
+          <!-- New job has been approved -->
+          {#if savedToTheBlockchain}
+            <p>1- Your order is successfully saved in the blockchain!</p>
+          {/if}
+          {#if savedToTheAccount}
+            <p>2- Your order is successfully saved in your account!</p>
+          {/if}
+          {#if savedToTheBlockchain === false}
+            <div class="modal-body__content">
+              <p>
+                1- Saving your order to the blockchain, please don't leave or
+                refresh the page.
+                <br />
+                This may take a few minutes.
+              </p>
               <br />
-              This may take a few minutes.
+              <div class="dot-typing" />
+              <br />
+            </div>
+          {/if}
+          {#if savedToTheAccount === false}
+            <div class="modal-body__content">
+              <p>2- Saving your order to your account.</p>
+              <br />
+              <div class="dot-typing" />
+              <br />
+            </div>
+          {/if}
+        {/if}
+      </div>
+    </Modal>
+  {/if}
+  <main>
+    <div class="container">
+      <h1>Create a new job</h1>
+      <div class="inputs">
+        <div>
+          <p>Type of job</p>
+          <p>
+            <input
+              type="checkbox"
+              value="text"
+              class="css-checkbox med"
+              id="checkbox-translation"
+              checked={jobType === 'translation'}
+              on:change={() => {
+                if (jobType === 'translation') {
+                  jobType = 'proofreading';
+                } else {
+                  jobType = 'translation';
+                }
+              }} />
+            <label for="checkbox-translation" class="css-label med elegant">
+              Translation
+            </label>
+            <input
+              type="checkbox"
+              value="file"
+              class="css-checkbox med"
+              id="checkbox-proofreading"
+              checked={jobType === 'proofreading'}
+              on:change={() => {
+                if (jobType === 'proofreading') {
+                  jobType = 'translation';
+                } else {
+                  jobType = 'proofreading';
+                }
+              }} />
+            <label for="checkbox-proofreading" class="css-label med elegant">
+              Proofreading
+            </label>
+          </p>
+        </div>
+        <div>
+          <p>Type of support</p>
+          <p>
+            <input
+              type="checkbox"
+              value="text"
+              class="css-checkbox med"
+              id="checkbox-text"
+              checked={supportType === 'text'}
+              on:change={() => {
+                if (supportType === 'text') {
+                  selectedFile = { size: undefined, type: undefined, name: 'Choose a file' };
+                  supportType = 'file';
+                  filePrice = 0;
+                } else {
+                  textInput = '';
+                  supportType = 'text';
+                  textPrice = 0;
+                }
+              }} />
+            <label for="checkbox-text" class="css-label med elegant">
+              Text
+            </label>
+            <input
+              type="checkbox"
+              value="file"
+              class="css-checkbox med"
+              id="checkbox-file"
+              checked={supportType === 'file'}
+              on:change={() => {
+                if (supportType === 'file') {
+                  textInput = '';
+                  supportType = 'text';
+                  textPrice = 0;
+                } else {
+                  selectedFile = { size: undefined, type: undefined, name: 'Choose a file' };
+                  supportType = 'file';
+                  filePrice = 0;
+                }
+              }} />
+            <label for="checkbox-file" class="css-label med elegant">
+              File
+            </label>
+          </p>
+        </div>
+        <div>
+          <p>Content Type</p>
+          <p>
+            <select name="contentType" bind:value={contentType}>
+              {#each contentTypeOptions as option}
+                <option>{option}</option>
+              {/each}
+            </select>
+          </p>
+        </div>
+      </div>
+      {#if jobType && supportType === 'text'}
+        <div
+          transition:slide={{ y: 200, duration: 500 }}
+          style="margin-top:25px;">
+          <div class="inputs">
+            <div class="textarea-input">
+              <textarea
+                name="text-input"
+                id="text-input"
+                rows="6"
+                bind:value={textInput}
+                placeholder="Enter your text here..."
+                on:input={event => (textInput = event.target.value)} />
+              <p class={`note ${textInputSizeError ? 'warning-text' : ''}`}>
+                Maximum 60 kB
+              </p>
+            </div>
+            <div class="price-output">
+              <p>Total Price</p>
+              <br />
+              <p class:danger-text={insufficientFunds} class="price">
+                <span>{textPrice}</span>
+                <span>ethers</span>
+              </p>
+              <p>
+                ({`~$${Math.round(parseFloat(textPrice) * parseFloat(ethPrice) * 100) / 100}`})
+              </p>
+              {#if insufficientFunds}
+                <p style="font-size: 0.7rem">
+                  You don't have enough ethers to create this job.
+                </p>
+              {/if}
+            </div>
+          </div>
+          <div class="inputs" style="margin-top:25px" />
+        </div>
+      {:else if jobType && supportType === 'file'}
+        <div transition:slide={{ y: 200, duration: 500 }}>
+          <div class="inputs">
+            <label for="file-input">Please choose the file to translate:</label>
+            <input
+              type="file"
+              id="file-input"
+              name="file-input"
+              accept=".doc, .docx, .xls, .xlsx, .pdf, .txt, .rtf, .csv"
+              on:change={checkFile} />
+            <label for="file-input">
+              <h4 style="cursor:pointer">{selectedFile.name}</h4>
+            </label>
+          </div>
+          <div class="inputs">
+            <p>Price</p>
+            <p class:danger-text={insufficientFunds} class="price">
+              <span>{filePrice}</span>
+              <span>ethers</span>
+              <span>
+                ({`~$${Math.round(parseFloat(filePrice) * parseFloat(ethPrice) * 100) / 100}`})
+              </span>
+              {#if insufficientFunds}
+                <br />
+                <span style="font-size: 0.7rem">
+                  You don't have enough ethers to create this job.
+                </span>
+              {/if}
             </p>
-            <br />
-            <div class="dot-typing" />
-            <br />
           </div>
-        {/if}
-        {#if savedToTheAccount === false}
-          <div class="modal-body__content">
-            <p>2- Saving your order to your account.</p>
-            <br />
-            <div class="dot-typing" />
-            <br />
+        </div>
+      {/if}
+      {#if jobType && supportType}
+        <div class="inputs">
+          <div>
+            <p class="lang-pair">
+              <label for="from-lang">From</label>
+              <select name="from-lang" id="from-lang" bind:value={fromLang}>
+                <option value="default" selected="selected">Language</option>
+                {#each langs.all() as item}
+                  <option value={item[3]}>{item.name}</option>
+                {/each}
+              </select>
+            </p>
+            <p class="lang-pair">
+              <label for="to-lang">To</label>
+              <select name="to-lang" id="to-lang" bind:value={toLang}>
+                <option value="default" selected="selected">Language</option>
+                {#each langs.all() as item}
+                  <option value={item[3]}>{item.name}</option>
+                {/each}
+              </select>
+            </p>
           </div>
-        {/if}
+          <div>
+            <p>
+              <input
+                type="checkbox"
+                class="css-checkbox med"
+                id="checkbox-regular-quality"
+                checked={!extraQuality}
+                on:change={() => (extraQuality = false)} />
+              <label
+                for="checkbox-regular-quality"
+                class="css-label med elegant">
+                Regular Quality
+              </label>
+            </p>
+            <p>
+              <input
+                type="checkbox"
+                class="css-checkbox med"
+                id="checkbox-extra-quality"
+                checked={extraQuality}
+                on:change={() => (extraQuality = true)} />
+              <label for="checkbox-extra-quality" class="css-label med elegant">
+                Extra Quality
+              </label>
+            </p>
+          </div>
+          <div>
+            <p>Due in</p>
+            <p>
+              <select name="duedate" id="duedate" bind:value={duedate}>
+                <option value={60 * 60}>In 1 hour</option>
+                <option value={60 * 60 * 5}>In 5 hours</option>
+                <option value={60 * 60 * 12}>In 12 hours</option>
+                <option value={60 * 60 * 24} selected="selected">
+                  In 24 hours
+                </option>
+                <option value={60 * 60 * 24 * 2}>In 2 days</option>
+                <option value={60 * 60 * 24 * 4}>In 4 days</option>
+                <option value={60 * 60 * 24 * 7}>In 1 week</option>
+              </select>
+            </p>
+          </div>
+        </div>
+        <div class="inputs">
+          <div class="comment-input">
+            <p>
+              Please type your comments to help us give you the best translation
+            </p>
+            <textarea
+              name="comments-input"
+              id="comments-input"
+              rows="2"
+              placeholder="Enter your comments here..."
+              bind:value={comments}
+              on:input={event => (comments = event.target.value.slice(0, 200))} />
+          </div>
+        </div>
+        <p class={`note ${comments.length >= 200 ? 'warning-text' : ''}`}>
+          Maximum 200 characters
+        </p>
+        <div class="footer">
+          <Button
+            type={saveButtonActive ? 'info' : 'disabled'}
+            text="Review"
+            on:click={() => (validationModal = true)} />
+        </div>
       {/if}
     </div>
-  </Modal>
+  </main>
 {/if}
-<main>
-  <div class="container">
-    <h1>Create a new job</h1>
-    <div class="inputs">
-      <div>
-        <p>Type of job</p>
-        <p>
-          <input
-            type="checkbox"
-            value="text"
-            class="css-checkbox med"
-            id="checkbox-translation"
-            checked={jobType === 'translation'}
-            on:change={() => {
-              if (jobType === 'translation') {
-                jobType = 'proofreading';
-              } else {
-                jobType = 'translation';
-              }
-            }} />
-          <label for="checkbox-translation" class="css-label med elegant">
-            Translation
-          </label>
-          <input
-            type="checkbox"
-            value="file"
-            class="css-checkbox med"
-            id="checkbox-proofreading"
-            checked={jobType === 'proofreading'}
-            on:change={() => {
-              if (jobType === 'proofreading') {
-                jobType = 'translation';
-              } else {
-                jobType = 'proofreading';
-              }
-            }} />
-          <label for="checkbox-proofreading" class="css-label med elegant">
-            Proofreading
-          </label>
-        </p>
-      </div>
-      <div>
-        <p>Type of support</p>
-        <p>
-          <input
-            type="checkbox"
-            value="text"
-            class="css-checkbox med"
-            id="checkbox-text"
-            checked={supportType === 'text'}
-            on:change={() => {
-              if (supportType === 'text') {
-                selectedFile = { size: undefined, type: undefined, name: 'Choose a file' };
-                supportType = 'file';
-                filePrice = 0;
-              } else {
-                textInput = '';
-                supportType = 'text';
-                textPrice = 0;
-              }
-            }} />
-          <label for="checkbox-text" class="css-label med elegant">Text</label>
-          <input
-            type="checkbox"
-            value="file"
-            class="css-checkbox med"
-            id="checkbox-file"
-            checked={supportType === 'file'}
-            on:change={() => {
-              if (supportType === 'file') {
-                textInput = '';
-                supportType = 'text';
-                textPrice = 0;
-              } else {
-                selectedFile = { size: undefined, type: undefined, name: 'Choose a file' };
-                supportType = 'file';
-                filePrice = 0;
-              }
-            }} />
-          <label for="checkbox-file" class="css-label med elegant">File</label>
-        </p>
-      </div>
-      <div>
-        <p>Content Type</p>
-        <p>
-          <select name="contentType" bind:value={contentType}>
-            {#each contentTypeOptions as option}
-              <option>{option}</option>
-            {/each}
-          </select>
-        </p>
-      </div>
-    </div>
-    {#if jobType && supportType === 'text'}
-      <div
-        transition:slide={{ y: 200, duration: 500 }}
-        style="margin-top:25px;">
-        <div class="inputs">
-          <div class="textarea-input">
-            <textarea
-              name="text-input"
-              id="text-input"
-              rows="6"
-              bind:value={textInput}
-              placeholder="Enter your text here..."
-              on:input={event => (textInput = event.target.value)} />
-            <p class={`note ${textInputSizeError ? 'warning-text' : ''}`}>
-              Maximum 60 kB
-            </p>
-          </div>
-          <div class="price-output">
-            <p>Total Price</p>
-            <br />
-            <p class:danger-text={insufficientFunds} class="price">
-              <span>{textPrice}</span>
-              <span>ethers</span>
-            </p>
-            <p>
-              ({`~$${Math.round(parseFloat(textPrice) * parseFloat(ethPrice) * 100) / 100}`})
-            </p>
-            {#if insufficientFunds}
-              <p style="font-size: 0.7rem">
-                You don't have enough ethers to create this job.
-              </p>
-            {/if}
-          </div>
-        </div>
-        <div class="inputs" style="margin-top:25px" />
-      </div>
-    {:else if jobType && supportType === 'file'}
-      <div transition:slide={{ y: 200, duration: 500 }}>
-        <div class="inputs">
-          <label for="file-input">Please choose the file to translate:</label>
-          <input
-            type="file"
-            id="file-input"
-            name="file-input"
-            accept=".doc, .docx, .xls, .xlsx, .pdf, .txt, .rtf, .csv"
-            on:change={checkFile} />
-          <label for="file-input">
-            <h4 style="cursor:pointer">{selectedFile.name}</h4>
-          </label>
-        </div>
-        <div class="inputs">
-          <p>Price</p>
-          <p class:danger-text={insufficientFunds} class="price">
-            <span>{filePrice}</span>
-            <span>ethers</span>
-            <span>
-              ({`~$${Math.round(parseFloat(filePrice) * parseFloat(ethPrice) * 100) / 100}`})
-            </span>
-            {#if insufficientFunds}
-              <br />
-              <span style="font-size: 0.7rem">
-                You don't have enough ethers to create this job.
-              </span>
-            {/if}
-          </p>
-        </div>
-      </div>
-    {/if}
-    {#if jobType && supportType}
-      <div class="inputs">
-        <div>
-          <p class="lang-pair">
-            <label for="from-lang">From</label>
-            <select name="from-lang" id="from-lang" bind:value={fromLang}>
-              <option value="default" selected="selected">Language</option>
-              {#each langs.all() as item}
-                <option value={item[3]}>{item.name}</option>
-              {/each}
-            </select>
-          </p>
-          <p class="lang-pair">
-            <label for="to-lang">To</label>
-            <select name="to-lang" id="to-lang" bind:value={toLang}>
-              <option value="default" selected="selected">Language</option>
-              {#each langs.all() as item}
-                <option value={item[3]}>{item.name}</option>
-              {/each}
-            </select>
-          </p>
-        </div>
-        <div>
-          <p>
-            <input
-              type="checkbox"
-              class="css-checkbox med"
-              id="checkbox-regular-quality"
-              checked={!extraQuality}
-              on:change={() => (extraQuality = false)} />
-            <label for="checkbox-regular-quality" class="css-label med elegant">
-              Regular Quality
-            </label>
-          </p>
-          <p>
-            <input
-              type="checkbox"
-              class="css-checkbox med"
-              id="checkbox-extra-quality"
-              checked={extraQuality}
-              on:change={() => (extraQuality = true)} />
-            <label for="checkbox-extra-quality" class="css-label med elegant">
-              Extra Quality
-            </label>
-          </p>
-        </div>
-        <div>
-          <p>Due in</p>
-          <p>
-            <select name="duedate" id="duedate" bind:value={duedate}>
-              <option value={60 * 60}>In 1 hour</option>
-              <option value={60 * 60 * 5}>In 5 hours</option>
-              <option value={60 * 60 * 12}>In 12 hours</option>
-              <option value={60 * 60 * 24} selected="selected">
-                In 24 hours
-              </option>
-              <option value={60 * 60 * 24 * 2}>In 2 days</option>
-              <option value={60 * 60 * 24 * 4}>In 4 days</option>
-              <option value={60 * 60 * 24 * 7}>In 1 week</option>
-            </select>
-          </p>
-        </div>
-      </div>
-      <div class="inputs">
-        <div class="comment-input">
-          <p>
-            Please type your comments to help us give you the best translation
-          </p>
-          <textarea
-            name="comments-input"
-            id="comments-input"
-            rows="2"
-            placeholder="Enter your comments here..."
-            bind:value={comments}
-            on:input={event => (comments = event.target.value.slice(0, 200))} />
-        </div>
-      </div>
-      <p class={`note ${comments.length >= 200 ? 'warning-text' : ''}`}>
-        Maximum 200 characters
-      </p>
-      <div class="footer">
-        <Button
-          type={saveButtonActive ? 'info' : 'disabled'}
-          text="Review"
-          on:click={() => (validationModal = true)} />
-      </div>
-    {/if}
-  </div>
-</main>

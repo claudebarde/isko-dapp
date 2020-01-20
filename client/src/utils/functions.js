@@ -5,8 +5,15 @@ export const shortenHash = hash =>
 
 export const upperFirst = word => word[0].toUpperCase() + word.slice(1);
 
-export const fromWeiToEther = (web3, wei) =>
-  Math.round(web3.utils.fromWei(wei.toString(), "ether") * 10000) / 10000;
+export const fromWeiToEther = (web3, wei) => {
+  if (!!wei) {
+    return (
+      Math.round(web3.utils.fromWei(wei.toString(), "ether") * 10000) / 10000
+    );
+  } else {
+    return 0;
+  }
+};
 
 export const checkJobPriority = ({ duedate, timestamp }) => {
   const timeLeft = parseInt(timestamp) + parseInt(duedate * 1000) - Date.now();
@@ -19,6 +26,25 @@ export const checkJobPriority = ({ duedate, timestamp }) => {
     return "medium-priority-job";
   } else {
     return "low-priority-job";
+  }
+};
+
+export const convertJobStatus = statusNumber => {
+  switch (parseInt(statusNumber)) {
+    case 0:
+      return "available";
+    case 1:
+      return "accepted";
+    case 2:
+      return "delivered";
+    case 3:
+      return "review";
+    case 4:
+      return "paidout";
+    case 5:
+      return "cancelled";
+    default:
+      return null;
   }
 };
 

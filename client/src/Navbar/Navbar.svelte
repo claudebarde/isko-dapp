@@ -15,7 +15,7 @@
   import Button from "../Components/Button.svelte";
   import { link, push, location } from "svelte-spa-router";
   import contractInterface from "../../../build/contracts/IskoDapp.json";
-  import { shortenHash } from "../utils/functions";
+  import { shortenHash, convertJobStatus } from "../utils/functions";
   import "firebase/firestore";
 
   const dispatch = createEventDispatcher();
@@ -134,10 +134,11 @@
             subscribeToAccount = await db
               .collection("customers")
               .doc(user.uid)
-              .onSnapshot(doc => {
+              .onSnapshot(async doc => {
                 if (doc.exists) {
                   userStore.updateAccountInfo({
                     ...doc.data(),
+                    jobs: await checkJobsStatus(doc.data().jobs),
                     uid: user.uid,
                     email: user.email
                   });
@@ -158,6 +159,7 @@
       if (subscribeToAccount) subscribeToAccount();
       console.log("user not connected");
       userStore.connectedUser(false);
+      userStore.updateAccountType("visitor");
       // goes back to main page
       if (location !== "/") push("/");
     }
@@ -187,6 +189,25 @@
         web3Store.isMetamaskConnected(false);
       }
     }
+  };
+
+  const checkJobsStatus = async jobs => {
+    const promises = [];
+    jobs.reverse().forEach(async job => {
+      promises.push(
+        new Promise(async (resolve, reject) => {
+          try {
+            const blckJob = await $web3Store.contractInstance.methods
+              .jobs(job.id)
+              .call();
+            resolve({ ...job, status: convertJobStatus(blckJob.status) });
+          } catch (error) {
+            resolve({ ...job, status: null });
+          }
+        })
+      );
+    });
+    return await Promise.all(promises);
   };
 
   onMount(async () => {

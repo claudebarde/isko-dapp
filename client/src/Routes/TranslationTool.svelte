@@ -156,15 +156,15 @@
       contractAddress
     } = $web3Store;
     try {
-      /*const result = await sendTxAndWait({
+      const result = await sendTxAndWait({
         web3,
         contractInstance,
         currentAddress,
         contractAddress,
         method: "deliverJob",
         methodParameters: [jobID]
-      });*/
-      const result = { result: "tx_included" };
+      });
+      //const result = { result: "tx_included" };
       if (result.result === "tx_included") {
         // if file is sent
         if (data.type === "file") {
