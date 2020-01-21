@@ -5,6 +5,7 @@
 <style>
   svg {
     margin-right: 1rem;
+    vertical-align: middle;
   }
 </style>
 

@@ -6,6 +6,7 @@
   import Button from "../Button.svelte";
 
   export let content;
+  export let previousGrid = [];
 
   let translationGrid = [];
   let buttonType = "disabled";
@@ -42,10 +43,27 @@
   };
 
   onMount(() => {
+    console.log(previousGrid);
     const options = { newline_boundaries: true, sanitize: true };
-    translationGrid = [...tokenizer.sentences(content, options)].map(
-      sentence => ({ input: sentence, output: "", status: false })
-    );
+    const grid = tokenizer.sentences(content, options);
+    if (grid.length === previousGrid.length) {
+      // both grids have the same length
+      translationGrid = [
+        ...grid.map((sentence, i) => ({
+          input: sentence,
+          output: previousGrid[i].output,
+          status: true
+        }))
+      ];
+    } else {
+      translationGrid = [
+        ...grid.map(sentence => ({
+          input: sentence,
+          output: "",
+          status: false
+        }))
+      ];
+    }
   });
 </script>
 

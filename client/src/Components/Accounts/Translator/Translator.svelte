@@ -2,12 +2,14 @@
   import moment from "moment";
   import langs from "langs";
   import { fly } from "svelte/transition";
+  import { push } from "svelte-spa-router";
   import Navbar from "../../../Navbar/Navbar.svelte";
   import web3Store from "../../../stores/web3-store";
   import userStore from "../../../stores/user-store";
   import { shortenHash, fromWeiToEther } from "../../../utils/functions";
   import ActiveTranslationEntry from "./ActiveTranslationEntry.svelte";
   import PendingTranslationEntry from "./PendingTranslationEntry.svelte";
+  import AlertTriangle from "../../Icons/AlertTriangle.svelte";
 
   let langPairFrom = undefined;
   let langPairTo = undefined;
@@ -37,18 +39,11 @@
     width: 100% !important;
   }
 
-  /*.lang-pair-choice {
-    margin: 0;
-    margin-bottom: 5px;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
+  .to-review {
+    margin: 10px;
+    color: #f56565;
+    cursor: pointer;
   }
-
-  .lang-pair-choice select {
-    margin-left: 5px;
-  }*/
 </style>
 
 {#if $userStore.info}
@@ -167,35 +162,21 @@
           {/each}
         </div>
       </div>
-      <!-- <div class="account-card__content">
-        <div>Add a second language pair</div>
-        <div>
-          <p class="lang-pair-choice">
-            From
-            <select name="from" id="from" bind:value={langPairFrom}>
-              {#each langs.all() as item}
-                <option value={item[3]}>{item.name}</option>
-              {/each}
-            </select>
-          </p>
-          <p class="lang-pair-choice">
-            To
-            <select name="to" id="to" bind:value={langPairTo}>
-              {#each langs.all() as item}
-                <option value={item[3]}>{item.name}</option>
-              {/each}
-            </select>
-          </p>
-          <p class="lang-pair-choice">
-            Add a new pair
-            <img
-              src="images/plus-square.svg"
-              alt="add"
-              class="external-link"
-              on:click={addNewLangPair} />
-          </p>
+      <div class="account-card__content">
+        <div class="user-translations">
+          <div>Translations to Review</div>
+          {#each $userStore.info.translationsToReview as transl}
+            <div
+              class="to-review"
+              on:click={() => push(`/translate/${transl}`)}>
+              <AlertTriangle color="#f56565" />
+              {transl}
+            </div>
+          {:else}
+            <p>No translation to review</p>
+          {/each}
         </div>
-      </div>-->
+      </div>
     </div>
     <div class="account-card">
       <div class="account-card__content">

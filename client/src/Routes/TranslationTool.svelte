@@ -255,7 +255,7 @@
     // displays warning message to translator if translation doesnt have "accepted" status
     if (
       smContractInfo &&
-      parseInt(smContractInfo.status) > 1 &&
+      ![1, 3].includes(parseInt(smContractInfo.status)) &&
       !!translationDetails.timestamp &&
       !wrongSmStatus
     ) {
@@ -515,6 +515,7 @@
             {#if translationDetails.supportType === 'text'}
               <TranslationGrid
                 content={translationDetails.content}
+                previousGrid={translationDetails.finalTranslation}
                 on:cancel={() => (cancelModal = true)}
                 on:submitText={submitTranslation} />
             {:else}
