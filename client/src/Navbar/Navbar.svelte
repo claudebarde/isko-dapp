@@ -84,7 +84,6 @@
 
   // FIREBASE AUTH
   firebase.auth().onAuthStateChanged(async user => {
-    //console.log("change of auth state:", user);
     if (user !== null) {
       if (!$web3Store.currentAddress) {
         // tries to renew user's address

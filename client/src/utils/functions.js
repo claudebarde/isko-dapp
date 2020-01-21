@@ -48,6 +48,14 @@ export const convertJobStatus = statusNumber => {
   }
 };
 
+export const buildFinalTranslation = (grid, originalText) => {
+  grid.forEach(segment => {
+    originalText = originalText.replace(segment.input, segment.output);
+  });
+
+  return originalText;
+};
+
 export const validateFile = file => {
   //const file = event.target.files[0];
   let selectedFile = {

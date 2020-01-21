@@ -1,5 +1,5 @@
 <script>
-  export let color;
+  export let color = "#333";
 </script>
 
 <style>

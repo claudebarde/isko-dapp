@@ -120,21 +120,27 @@
   /*Colors for job status*/
   .status-available {
     color: #f56565;
+    cursor: pointer;
   }
   .status-accepted {
     color: #ed8936;
+    cursor: pointer;
   }
   .status-delivered {
     color: #48bb78;
+    cursor: pointer;
   }
   .status-review {
     color: #9f7aea;
+    cursor: pointer;
   }
   .status-paidout {
     color: #ed64a6;
+    cursor: pointer;
   }
   .status-cancelled {
     color: #a0aec0;
+    cursor: pointer;
   }
 </style>
 
@@ -209,7 +215,8 @@
               [
               <strong
                 class={job.status ? `status-${job.status}` : ''}
-                title={`Status: ${job.status}`}>
+                title={`Status: ${job.status}`}
+                on:click={() => push(`/review/${job.id}`)}>
                 {shortenHash(job.id)}
               </strong>
               ] Ξ{fromWeiToEther($web3Store.web3, job.price)}

@@ -1,11 +1,11 @@
 <script>
   import { onMount, createEventDispatcher } from "svelte";
   import firebase from "firebase";
-  import Button from "./Button.svelte";
-  import { validateFile } from "../utils/functions";
-  import { jobStatuses } from "../utils/utils";
-  import eventsStore from "../stores/events-store";
-  import Modal from "./Modal.svelte";
+  import Button from "../Button.svelte";
+  import { validateFile } from "../../utils/functions";
+  import { jobStatuses } from "../../utils/utils";
+  import eventsStore from "../../stores/events-store";
+  import Modal from "../Modal.svelte";
 
   export let content;
   export let smContractInfo;

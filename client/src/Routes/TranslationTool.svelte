@@ -1,5 +1,5 @@
 <script>
-  import { onMount, afterUpdate, onDestroy } from "svelte";
+  import { onMount, afterUpdate } from "svelte";
   import { fly, slide } from "svelte/transition";
   import firebase from "firebase";
   import moment from "moment";
@@ -9,11 +9,12 @@
   import web3Store from "../stores/web3-store";
   import userStore from "../stores/user-store";
   import eventsStore from "../stores/events-store";
-  import { shortenHash, upperFirst, fromWeiToEther } from "../utils/functions";
-  import Tag from "../Components/Tag.svelte";
+  import { upperFirst, fromWeiToEther } from "../utils/functions";
   import Alert from "../Components/Alert.svelte";
-  import TranslationGrid from "../Components/TranslationGrid.svelte";
-  import TranslationFile from "../Components/TranslationFile.svelte";
+  import TranslationGrid from "../Components/TranslationComponents/TranslationGrid.svelte";
+  import TranslationFile from "../Components/TranslationComponents/TranslationFile.svelte";
+  import TranslationHeader from "../Components/TranslationComponents/TranslationHeader.svelte";
+  import TranslationComments from "../Components/TranslationComponents/TranslationComments.svelte";
   import Button from "../Components/Button.svelte";
   import Modal from "../Components/Modal.svelte";
   import { sendTxAndWait, errorMessage } from "../utils/sendTxAndWait";
@@ -27,11 +28,6 @@
   let translFetched = false;
   let translationDetails = { supportType: "" };
   let smContractInfo = undefined;
-  let dueTime = 0;
-  let dueTimeInterval = undefined;
-  let newComment = "";
-  let openNewComment = false;
-  let disableNewComment = false;
   let modalType = "error";
   let cancelModal = false;
   let cancelationReason = "";
@@ -45,45 +41,6 @@
   let pendingSubmitTransError = false;
   let pendingSubmitTransErrorMessage = "";
   let submitTransModalType = "info";
-
-  const validateComment = async event => {
-    if (event.keyCode === 13) {
-      disableNewComment = true;
-      const comment = {
-        from: "translator",
-        timestamp: Date.now(),
-        text: newComment
-      };
-      newComment = "Saving...";
-      event.preventDefault();
-      try {
-        // save new comment in database
-        const addComment = firebase.functions().httpsCallable("addComment"); // generates unique id token
-        const idToken = await firebase.auth().currentUser.getIdToken(true);
-        const result = await addComment({
-          jobID,
-          comment,
-          idToken
-        });
-        if (result.data.error === false) {
-          // updates local comments
-          let comments = [...translationDetails.comments];
-          comments.push(comment);
-          translationDetails = { ...translationDetails, comments };
-          newComment = "";
-          disableNewComment = false;
-          openNewComment = false;
-        } else {
-          throw new Error(result.data.msg);
-        }
-      } catch (error) {
-        console.log(error);
-        eventsStore.toggleWarningModal(
-          "An error has occurred while saving your comment!"
-        );
-      }
-    }
-  };
 
   const cancelJob = async () => {
     pendingCancelation = true;
@@ -183,12 +140,10 @@
             throw new Error("Couldn't upload the file!");
           delete data.file;
         } else if (data.type === "text") {
-          let text = translationDetails.content;
+          // status property in segment is useless
           data.translationGrid.forEach(segment => {
-            text = text.replace(segment.input, segment.output);
+            delete segment.status;
           });
-          delete data.translationGrid;
-          data = { ...data, text };
         } else {
           throw new Error("Unexpected translation type");
         }
@@ -257,8 +212,6 @@
     }
   });
 
-  onDestroy(() => clearInterval(dueTimeInterval));
-
   afterUpdate(async () => {
     if (!translFetched && $userStore.info) {
       try {
@@ -299,19 +252,6 @@
         console.log(error);
       }
     }
-    // sets interval to refresh due time
-    if (translationDetails.timestamp) {
-      dueTime = moment(
-        parseInt(translationDetails.timestamp) +
-          parseInt(translationDetails.duedate * 1000)
-      ).fromNow();
-      dueTimeInterval = setInterval(() => {
-        dueTime = moment(
-          parseInt(translationDetails.timestamp) +
-            parseInt(translationDetails.duedate * 1000)
-        ).fromNow();
-      }, 60000);
-    }
     // displays warning message to translator if translation doesnt have "accepted" status
     if (
       smContractInfo &&
@@ -344,17 +284,9 @@
       0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
 
-  h3,
   h4 {
     text-align: left;
     margin: 20px 0px;
-  }
-
-  .title {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
   }
 
   .job-body {
@@ -370,42 +302,6 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-  }
-
-  .comment {
-    margin: 4px;
-  }
-
-  .add-comment {
-    margin: 10px;
-    cursor: pointer;
-  }
-
-  .add-comment img {
-    width: 20px;
-    height: 20px;
-    vertical-align: middle;
-  }
-
-  .rotate {
-    -ms-transform: rotate(90deg);
-    -webkit-transform: rotate(90deg);
-    transform: rotate(90deg);
-  }
-
-  .no-rotate {
-    -ms-transform: rotate(0deg);
-    -webkit-transform: rotate(0deg);
-    transform: rotate(0deg);
-  }
-
-  .new-comment-container {
-    margin: 0px;
-    margin-left: 20px;
-  }
-
-  .new-comment-container textarea {
-    width: 30%;
   }
 
   .cancelation-msg .loader {
@@ -604,65 +500,18 @@
       <!-- if no job id provided -->
       <h4>No translation id has been provided.</h4>
     {:else}
-      <div class="title">
-        <h3>Translation #{shortenHash(jobID)}</h3>
-        {#if translationDetails.supportType && smContractInfo}
-          <div in:fly={{ x: 100, duration: 500 }}>
-            <Tag
-              type="info"
-              text={`${translationDetails.fromLang}=>${translationDetails.toLang}`} />
-            {#if translationDetails.extraQuality}
-              <Tag type="info" text="Extra Quality" />
-            {:else}
-              <Tag type="info" text="Standard" />
-            {/if}
-            <Tag type="info" text={translationDetails.contentType} />
-            <Tag type="warning" text={`Due ${dueTime}`} />
-            <Tag
-              type="success"
-              text={`Ξ ${smContractInfo.price ? fromWeiToEther($web3Store.web3, smContractInfo.price) : '...'}`} />
-          </div>
-        {/if}
-      </div>
+      <TranslationHeader
+        {jobID}
+        {translationDetails}
+        {smContractInfo}
+        web3={$web3Store.web3} />
       <div class="job-body">
         {#if translationDetails.supportType}
           <div in:slide={{ y: 100, duration: 500 }} style="width: 100%">
-            {#if translationDetails.comments && translationDetails.comments.length > 0}
-              <div class="comments">
-                {#each translationDetails.comments as comment}
-                  <p class="comment">
-                    Comment from {comment.from}:
-                    <em>"{comment.text}"</em>
-                  </p>
-                  <p class="comment" style="font-size:0.7rem">
-                    ({moment(comment.timestamp).format('MMM Do YYYY, h:mm:ss a')})
-                  </p>
-                {/each}
-              </div>
-            {/if}
-            <div
-              class="add-comment"
-              on:click={() => (openNewComment = !openNewComment)}>
-              <img
-                src="images/chevron-right.svg"
-                alt="chevron right"
-                id="comment-chevron"
-                class={openNewComment ? 'rotate' : 'no-rotate'} />
-              Add a comment
-            </div>
-            {#if openNewComment}
-              <div
-                transition:slide={{ x: 100, duration: 500 }}
-                class="new-comment-container">
-                <textarea
-                  rows="2"
-                  placeholder="Enter your comment here, press Enter to save..."
-                  maxlength="200"
-                  disabled={disableNewComment}
-                  on:keydown={validateComment}
-                  bind:value={newComment} />
-              </div>
-            {/if}
+            <TranslationComments
+              comments={translationDetails.comments}
+              {jobID}
+              on:new-comment={event => (translationDetails.comments = [...translationDetails.comments, event.detail])} />
             {#if translationDetails.supportType === 'text'}
               <TranslationGrid
                 content={translationDetails.content}

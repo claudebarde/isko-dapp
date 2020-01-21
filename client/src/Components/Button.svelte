@@ -87,6 +87,21 @@
     border-bottom: solid 4px #4a5568; /*700*/
   }
 
+  .warning {
+    background-color: #ed8936; /*500*/
+    border: none;
+    border-bottom: solid 4px #c05621; /*700*/
+  }
+
+  .warning:hover {
+    background-color: #f6ad55; /*400*/
+  }
+  .warning-clicked {
+    background-color: #ed8936; /*500*/
+    border: none;
+    border-top: solid 4px #c05621; /*700*/
+  }
+
   .error {
     background-color: #f56565; /*500*/
     border: none;

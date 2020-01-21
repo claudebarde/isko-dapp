@@ -3,7 +3,7 @@
   import { onMount, createEventDispatcher } from "svelte";
   import { fly } from "svelte/transition";
   import TranslationGridRow from "./TranslationGridRow.svelte";
-  import Button from "./Button.svelte";
+  import Button from "../Button.svelte";
 
   export let content;
 
