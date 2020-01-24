@@ -104,7 +104,7 @@ contract IskoDapp is Initializable {
     
     // translator delivers job
     function deliverJob (string memory _id) public validateRequest(_id) {
-        require(jobs[_id].status == JobStatus.Accepted, "This job doesn't have the required status!");
+        require(jobs[_id].status == JobStatus.Accepted || jobs[_id].status == JobStatus.Review, "This job doesn't have the required status!");
         // changes status of job
         jobs[_id].status = JobStatus.Delivered;
         jobs[_id].deliveredOn = now;

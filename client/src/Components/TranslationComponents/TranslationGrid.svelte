@@ -43,7 +43,6 @@
   };
 
   onMount(() => {
-    console.log(previousGrid);
     const options = { newline_boundaries: true, sanitize: true };
     const grid = tokenizer.sentences(content, options);
     if (grid.length === previousGrid.length) {

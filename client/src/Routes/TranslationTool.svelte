@@ -158,9 +158,9 @@
         const result = await submitCompletedTranslation({
           jobID,
           idToken,
+          status: smContractInfo.status.toString(),
           ...data
         });
-        //console.log(result);
         if (result.data.error === false) {
           loading = false;
           pendingSubmitTransTx = false;
@@ -174,7 +174,10 @@
           }, 1500);
         } else {
           if (result.data.msg) {
-            throw new Error({ result: "firebase_error", errorMsg: msg });
+            throw new Error({
+              result: "firebase_error",
+              errorMsg: result.data.msg
+            });
           } else {
             throw new Error({
               result: "firebase_error",

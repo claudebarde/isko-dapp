@@ -33,6 +33,10 @@
   .disabled {
     background-color: #a0aec0;
   }
+
+  .purple {
+    background-color: #9f7aea;
+  }
 </style>
 
 <div class={`tag ${type}`}>{text}</div>

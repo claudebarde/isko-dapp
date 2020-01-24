@@ -1,26 +1,26 @@
 <script>
   import moment from "moment";
   import { fly } from "svelte/transition";
-  import { onMount, onDestroy } from "svelte";
+  import { afterUpdate, onDestroy } from "svelte";
   import Tag from "../Tag.svelte";
   import { shortenHash, fromWeiToEther } from "../../utils/functions";
 
   export let jobID, translationDetails, smContractInfo, web3;
 
-  let dueTime = 0;
-  let dueTimeInterval = undefined;
+  let duedate = 0;
+  let duedateInterval = undefined;
 
-  onMount(() => {
+  afterUpdate(() => {
     // defines dueTime
-    dueTime = translationDetails.dueTime;
+    duedate = translationDetails.duedate;
     // sets interval to refresh due time
     if (translationDetails.timestamp) {
-      dueTime = moment(
+      duedate = moment(
         parseInt(translationDetails.timestamp) +
           parseInt(translationDetails.duedate * 1000)
       ).fromNow();
-      dueTimeInterval = setInterval(() => {
-        dueTime = moment(
+      duedateInterval = setInterval(() => {
+        duedate = moment(
           parseInt(translationDetails.timestamp) +
             parseInt(translationDetails.duedate * 1000)
         ).fromNow();
@@ -28,7 +28,7 @@
     }
   });
 
-  onDestroy(() => clearInterval(dueTimeInterval));
+  onDestroy(() => clearInterval(duedateInterval));
 </script>
 
 <style>
@@ -53,7 +53,11 @@
         <Tag type="info" text="Standard" />
       {/if}
       <Tag type="info" text={translationDetails.contentType} />
-      <Tag type="warning" text={`Due ${dueTime}`} />
+      {#if smContractInfo.status.toString() === '1'}
+        <Tag type="warning" text={`Due ${duedate}`} />
+      {:else if smContractInfo.status.toString() === '3'}
+        <Tag type="purple" text="Review" />
+      {/if}
       <Tag
         type="success"
         text={`Ξ ${smContractInfo.price ? fromWeiToEther(web3, smContractInfo.price) : '...'}`} />

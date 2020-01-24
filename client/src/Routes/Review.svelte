@@ -22,7 +22,7 @@
   let reviewEnabled = false;
   let openConfirmReviewModal = false;
   let reviewSteps = "confirm"; // confirm | await_tx | await_firebase | success | error
-  let errorMsg = "";
+  let fetchingError = false;
 
   const sendReviewRequest = async () => {
     const {
@@ -55,6 +55,17 @@
         if (result.data.error === false) {
           // success!
           reviewSteps = "success";
+          // update job status in store
+          userStore.updateAccountInfo({
+            ...$userStore.info,
+            jobs: $userStore.info.jobs.map(job => {
+              if (job.id === jobID) {
+                return { ...job, status: "review" };
+              } else {
+                return job;
+              }
+            })
+          });
           setTimeout(() => push("/account"), 3000);
         } else {
           throw new Error("Status update in database has failed !");
@@ -96,9 +107,11 @@
         }
       } catch (err) {
         console.log(err);
+        fetchingError = true;
         loading = false;
         eventsStore.toggleWarningModal(
-          "An error has occurred while fetching the job!"
+          "An error has occurred while fetching the job!<br /><br />" +
+            err.toString()
         );
       }
       loading = false;
@@ -211,139 +224,149 @@
   }
 </style>
 
-{#if $userStore.isUserConnected === undefined}
-  Loading your profile...
-{:else if $userStore.isUserConnected === false}
+{#if fetchingError}
   <main>
     <div class="no-access">
       <img src="images/undraw_ethereum.svg" alt="ethereum" class="picture" />
-      <p>You must be logged in to review a job!</p>
+      <p>You don't have access to this job, sorry!</p>
     </div>
   </main>
 {:else}
-  {#if openConfirmReviewModal}
-    <Modal
-      type={reviewSteps === 'success' ? 'success' : reviewSteps === 'error' ? 'error' : 'info'}
-      size="small"
-      on:close={() => (openConfirmReviewModal = false)}>
-      <div slot="title">
-        {#if reviewSteps === 'confirm'}
-          Confirm Review Request
-        {:else if reviewSteps === 'await_tx'}
-          Status Update Pending
-        {:else if reviewSteps === 'await_firebase'}
-          Status Update Pending
-        {:else if reviewSteps === 'success'}
-          Request Successful!
-        {:else if reviewSteps === 'error'}Error{/if}
+  {#if $userStore.isUserConnected === undefined}
+    Loading your profile...
+  {:else if $userStore.isUserConnected === false}
+    <main>
+      <div class="no-access">
+        <img src="images/undraw_ethereum.svg" alt="ethereum" class="picture" />
+        <p>You must be logged in to review a job!</p>
       </div>
-      <div slot="body">
-        {#if reviewSteps === 'confirm'}
-          <div class="text">
-            Are you sure you want to ask for a review of the translation?
+    </main>
+  {:else}
+    {#if openConfirmReviewModal}
+      <Modal
+        type={reviewSteps === 'success' ? 'success' : reviewSteps === 'error' ? 'error' : 'info'}
+        size="small"
+        on:close={() => (openConfirmReviewModal = false)}>
+        <div slot="title">
+          {#if reviewSteps === 'confirm'}
+            Confirm Review Request
+          {:else if reviewSteps === 'await_tx'}
+            Status Update Pending
+          {:else if reviewSteps === 'await_firebase'}
+            Status Update Pending
+          {:else if reviewSteps === 'success'}
+            Request Successful!
+          {:else if reviewSteps === 'error'}Error{/if}
+        </div>
+        <div slot="body">
+          {#if reviewSteps === 'confirm'}
+            <div class="text">
+              Are you sure you want to ask for a review of the translation?
+            </div>
+            <div class="buttons">
+              <div class="button">
+                <Button
+                  type="success"
+                  text="Cancel"
+                  on:click={() => (openConfirmReviewModal = false)} />
+              </div>
+              <div class="button">
+                <Button
+                  type="warning"
+                  text="Confirm"
+                  on:click={sendReviewRequest} />
+              </div>
+            </div>
+          {:else if reviewSteps === 'await_tx'}
+            <div class="text">
+              The request is being processed by the Ethereum network.
+            </div>
+            <div class="text">
+              This may take a couple minutes, please do not refresh, close or
+              leave the page.
+            </div>
+            <div class="dot-typing loader" />
+          {:else if reviewSteps === 'await_firebase'}
+            <div class="text">Transation successful!</div>
+            <div class="text">Your account is being updated.</div>
+            <div class="text">Please wait.</div>
+            <div class="dot-typing loader" />
+          {:else if reviewSteps === 'success'}
+            <div class="text">Your review request has been saved!</div>
+            <div class="text">
+              The translator will review the translation according to your
+              comments as soon as possible.
+            </div>
+            <div style="text-align:center">
+              <ThumbsUp />
+            </div>
+          {:else if reviewSteps === 'error'}
+            <div class="text">An error has occurred.</div>
+            <div class="text">Error message: {errorMsg}</div>
+          {/if}
+        </div>
+      </Modal>
+    {/if}
+    <main>
+      {#if loading}
+        <div class="loading">
+          <div>Loading, please wait</div>
+          <br />
+          <div class="dot-typing" />
+        </div>
+      {:else}
+        <div class="review-body">
+          {#if !jobID && !translationDetails.supportType}
+            <!-- if no job id provided -->
+            <h4>No translation details have been provided.</h4>
+          {:else}
+            <TranslationHeader
+              {jobID}
+              {translationDetails}
+              {smContractInfo}
+              web3={$web3Store.web3} />
+            <TranslationComments
+              comments={translationDetails.comments}
+              {jobID}
+              on:new-comment={event => {
+                translationDetails.comments = [...translationDetails.comments, event.detail];
+                reviewEnabled = true;
+              }} />
+            {#if translationDetails.supportType === 'text'}
+              <div class="translation-output">
+                <div class="translation-output__original">
+                  {translationDetails.content}
+                </div>
+                <div class="translation-output__translation">
+                  {buildFinalTranslation(translationDetails.deliveredTranslation, translationDetails.content)}
+                </div>
+              </div>
+            {:else}Translation File{/if}
+          {/if}
+          <div class="review-instructions">
+            <div>
+              If you are not satisfied with the translation, please enter a
+              comment for the translator and click on the "Ask for Review"
+              button.
+            </div>
+            <div>
+              A request for review updates the translation status on chain and
+              incurs gas expenses.
+            </div>
           </div>
           <div class="buttons">
             <div class="button">
               <Button
-                type="success"
-                text="Cancel"
-                on:click={() => (openConfirmReviewModal = false)} />
+                type={reviewEnabled ? 'warning' : 'disabled'}
+                text="Ask for Review"
+                on:click={() => (openConfirmReviewModal = true)} />
             </div>
             <div class="button">
-              <Button
-                type="warning"
-                text="Confirm"
-                on:click={sendReviewRequest} />
+              <Button type="success" text="Approve" />
             </div>
           </div>
-        {:else if reviewSteps === 'await_tx'}
-          <div class="text">
-            The request is being processed by the Ethereum network.
-          </div>
-          <div class="text">
-            This may take a couple minutes, please do not refresh, close or
-            leave the page.
-          </div>
-          <div class="dot-typing loader" />
-        {:else if reviewSteps === 'await_firebase'}
-          <div class="text">Transation successful!</div>
-          <div class="text">Your account is being updated.</div>
-          <div class="text">Please wait.</div>
-          <div class="dot-typing loader" />
-        {:else if reviewSteps === 'success'}
-          <div class="text">Your review request has been saved!</div>
-          <div class="text">
-            The translator will review the translation according to your
-            comments as soon as possible.
-          </div>
-          <div style="text-align:center">
-            <ThumbsUp />
-          </div>
-        {:else if reviewSteps === 'error'}
-          <div class="text">An error has occurred.</div>
-          <div class="text">Error message: {errorMsg}</div>
-        {/if}
-      </div>
-    </Modal>
+        </div>
+      {/if}
+    </main>
   {/if}
-  <main>
-    {#if loading}
-      <div class="loading">
-        <div>Loading, please wait</div>
-        <br />
-        <div class="dot-typing" />
-      </div>
-    {:else}
-      <div class="review-body">
-        {#if !jobID && !translationDetails.supportType}
-          <!-- if no job id provided -->
-          <h4>No translation details have been provided.</h4>
-        {:else}
-          <TranslationHeader
-            {jobID}
-            {translationDetails}
-            {smContractInfo}
-            web3={$web3Store.web3} />
-          <TranslationComments
-            comments={translationDetails.comments}
-            {jobID}
-            on:new-comment={event => {
-              translationDetails.comments = [...translationDetails.comments, event.detail];
-              reviewEnabled = true;
-            }} />
-          {#if translationDetails.supportType === 'text'}
-            <div class="translation-output">
-              <div class="translation-output__original">
-                {translationDetails.content}
-              </div>
-              <div class="translation-output__translation">
-                {buildFinalTranslation(translationDetails.deliveredTranslation, translationDetails.content)}
-              </div>
-            </div>
-          {:else}Translation File{/if}
-        {/if}
-        <div class="review-instructions">
-          <div>
-            If you are not satisfied with the translation, please enter a
-            comment for the translator and click on the "Ask for Review" button.
-          </div>
-          <div>
-            A request for review updates the translation status on chain and
-            incurs gas expenses.
-          </div>
-        </div>
-        <div class="buttons">
-          <div class="button">
-            <Button
-              type={reviewEnabled ? 'warning' : 'disabled'}
-              text="Ask for Review"
-              on:click={() => (openConfirmReviewModal = true)} />
-          </div>
-          <div class="button">
-            <Button type="success" text="Approve" />
-          </div>
-        </div>
-      </div>
-    {/if}
-  </main>
 {/if}

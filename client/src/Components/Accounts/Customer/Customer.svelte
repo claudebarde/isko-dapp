@@ -216,7 +216,7 @@
               <strong
                 class={job.status ? `status-${job.status}` : ''}
                 title={`Status: ${job.status}`}
-                on:click={() => push(`/review/${job.id}`)}>
+                on:click={() => (job.status === 'delivered' ? push(`/review/${job.id}`) : null)}>
                 {shortenHash(job.id)}
               </strong>
               ] Ξ{fromWeiToEther($web3Store.web3, job.price)}

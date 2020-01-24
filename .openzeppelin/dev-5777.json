@@ -1,11 +1,11 @@
 {
   "contracts": {
     "IskoDapp": {
-      "address": "0xe244D108D49075Ab48c1555bC76b6B020e279BD4",
-      "constructorCode": "608060405234801561001057600080fd5b50612ce1806100206000396000f3fe",
-      "bodyBytecodeHash": "f3a3bf36131403196c1ba430b8c3f8d8eeb4bf34acca9e0a01475a66a3daa0b8",
-      "localBytecodeHash": "aef4f31d5ca738ea2ccf4cab95894f60f706d92d46d479ba2504645f731ebc33",
-      "deployedBytecodeHash": "aef4f31d5ca738ea2ccf4cab95894f60f706d92d46d479ba2504645f731ebc33",
+      "address": "0xaE6D04e23FB6660f64fcf813402e1aF6a1f520EC",
+      "constructorCode": "608060405234801561001057600080fd5b50612e17806100206000396000f3fe",
+      "bodyBytecodeHash": "8a3d787250c96c775980a71603d115744cbb99f812c4932a450f7d7fa4a66339",
+      "localBytecodeHash": "a7b24524c858cd45eda2735f7000899df1fec9743989decce229a1bd3a2d881a",
+      "deployedBytecodeHash": "a7b24524c858cd45eda2735f7000899df1fec9743989decce229a1bd3a2d881a",
       "types": {
         "t_bool": {
           "id": "t_bool",
@@ -38,37 +38,37 @@
               "label": "customer",
               "astId": 269,
               "type": "t_address_payable",
-              "src": "423:24:2"
+              "src": "422:24:2"
             },
             {
               "label": "price",
               "astId": 271,
               "type": "t_uint256",
-              "src": "457:10:2"
+              "src": "456:10:2"
             },
             {
               "label": "timestamp",
               "astId": 273,
               "type": "t_uint256",
-              "src": "477:14:2"
+              "src": "476:14:2"
             },
             {
               "label": "status",
               "astId": 275,
               "type": "t_enum<IskoDapp.JobStatus>",
-              "src": "501:16:2"
+              "src": "500:16:2"
             },
             {
               "label": "translator",
               "astId": 277,
               "type": "t_address_payable",
-              "src": "527:26:2"
+              "src": "526:26:2"
             },
             {
               "label": "deliveredOn",
               "astId": 279,
               "type": "t_uint256",
-              "src": "563:16:2"
+              "src": "562:16:2"
             }
           ]
         },
@@ -145,7 +145,7 @@
           "label": "jobs",
           "astId": 284,
           "type": "t_mapping<t_struct<IskoDapp.Job>>",
-          "src": "591:34:2"
+          "src": "590:34:2"
         },
         {
           "contract": "IskoDapp",
@@ -153,7 +153,7 @@
           "label": "translators",
           "astId": 288,
           "type": "t_mapping<t_uint256>",
-          "src": "631:43:2"
+          "src": "630:43:2"
         },
         {
           "contract": "IskoDapp",
@@ -161,7 +161,7 @@
           "label": "generalRevenue",
           "astId": 290,
           "type": "t_uint256",
-          "src": "680:22:2"
+          "src": "679:22:2"
         }
       ],
       "warnings": {
@@ -169,7 +169,18 @@
         "hasSelfDestruct": false,
         "hasDelegateCall": false,
         "hasInitialValuesInDeclarations": false,
-        "uninitializedBaseContracts": []
+        "uninitializedBaseContracts": [],
+        "storageUncheckedVars": [
+          {
+            "contract": "IskoDapp",
+            "path": "contracts/IskoDapp.sol",
+            "label": "jobs",
+            "astId": 284,
+            "type": "t_mapping<t_struct<IskoDapp.Job>>",
+            "src": "590:34:2"
+          }
+        ],
+        "storageDiff": []
       }
     }
   },
@@ -179,7 +190,7 @@
       {
         "address": "0x5Df4d75e02B581AC9ecb6c2dE33A0a215FF4e3aE",
         "version": "1.0.0",
-        "implementation": "0xe244D108D49075Ab48c1555bC76b6B020e279BD4",
+        "implementation": "0xaE6D04e23FB6660f64fcf813402e1aF6a1f520EC",
         "admin": "0x98C5C094d8d7E51a9EB23D2404f424013Adb6986",
         "kind": "Upgradeable"
       }
