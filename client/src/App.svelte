@@ -4,7 +4,7 @@
   import Market from "./Routes/Market.svelte";
   import TranslationTool from "./Routes/TranslationTool.svelte";
   import CreateNewJob from "./Routes/CreateNewJob.svelte";
-  import Review from "./Routes/Review.svelte";
+  import JobView from "./Routes/JobView.svelte";
   import Router from "svelte-spa-router";
   import Navbar from "./Navbar/Navbar.svelte";
   import ConnectedServices from "./Components/ConnectedServices.svelte";
@@ -15,7 +15,7 @@
     "/market": Market,
     "/translate/:id?": TranslationTool,
     "/order": CreateNewJob,
-    "/review/:id": Review
+    "/view/:id": JobView
   };
 </script>
 

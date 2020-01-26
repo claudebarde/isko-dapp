@@ -134,6 +134,11 @@
     color: #9f7aea;
     cursor: pointer;
   }
+
+  .status-approved {
+    color: #667eea;
+    cursor: pointer;
+  }
   .status-paidout {
     color: #4299e1;
     cursor: pointer;
@@ -216,7 +221,7 @@
               <strong
                 class={job.status ? `status-${job.status.toLowerCase()}` : ''}
                 title={`Status: ${job.status}`}
-                on:click={() => (job.status === 'delivered' ? push(`/review/${job.id}`) : null)}>
+                on:click={() => push(`/view/${job.id}`)}>
                 {shortenHash(job.id)}
               </strong>
               ] Ξ{fromWeiToEther($web3Store.web3, job.price)}

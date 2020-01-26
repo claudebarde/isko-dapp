@@ -272,7 +272,7 @@
   .review-instructions div {
     width: 50%;
     padding: 10px 20px 0px 20px;
-    text-align: left;
+    text-align: right;
   }
 
   .text {
@@ -500,42 +500,76 @@
                   {translationDetails.content}
                 </div>
                 <div class="translation-output__translation">
-                  {buildFinalTranslation(translationDetails.deliveredTranslation, translationDetails.content)}
+                  {#if translationDetails.status === 'available' || translationDetails.status === 'accepted'}
+                    No translation to show
+                  {:else}
+                    {buildFinalTranslation(translationDetails.deliveredTranslation, translationDetails.content)}
+                  {/if}
                 </div>
               </div>
             {:else}Translation File{/if}
           {/if}
-          <div class="review-instructions">
-            <div>
-              If you are not satisfied with the translation, please enter a
-              comment for the translator and click on the "Ask for Review"
-              button.
+          {#if translationDetails.status === 'available'}
+            <div class="review-instructions">
+              <div>
+                The translation is on the job market waiting for a translator to
+                accept it.
+              </div>
             </div>
-            <div>
-              A request for review updates the translation status on chain and
-              incurs gas expenses.
+          {:else if translationDetails.status === 'accepted'}
+            <div class="review-instructions">
+              <div>
+                A translator was assigned and is working on your translation.
+              </div>
             </div>
-          </div>
-          <div class="buttons">
-            <div class="button">
-              <Button
-                type={reviewEnabled ? 'warning' : 'disabled'}
-                text="Ask for Review"
-                on:click={() => (openConfirmReviewModal = true)} />
+          {:else if translationDetails.status === 'delivered' || translationDetails.status === 'review'}
+            <div class="review-instructions">
+              <div>
+                If you are not satisfied with the translation, please enter a
+                comment for the translator and click on the "Ask for Review"
+                button.
+              </div>
+              <div>
+                A request for review updates the translation status on chain and
+                incurs gas expenses.
+              </div>
             </div>
-            <div class="button">
-              <Button
-                type="info"
-                text="Leave Feedback"
-                on:click={() => (openFeedbackModal = true)} />
+            <div class="buttons">
+              <div class="button">
+                <Button
+                  type={reviewEnabled ? 'warning' : 'disabled'}
+                  text="Ask for Review"
+                  on:click={() => (openConfirmReviewModal = true)} />
+              </div>
+              <div class="button">
+                <Button
+                  type="info"
+                  text="Leave Feedback"
+                  on:click={() => (openFeedbackModal = true)} />
+              </div>
+              <div class="button">
+                <Button
+                  type="success"
+                  text="Approve"
+                  on:click={() => (openApproveModal = true)} />
+              </div>
             </div>
-            <div class="button">
-              <Button
-                type="success"
-                text="Approve"
-                on:click={() => (openApproveModal = true)} />
+          {:else if translationDetails.status === 'approved'}
+            <div class="review-instructions">
+              <div>You approved this translation.</div>
             </div>
-          </div>
+          {:else if translationDetails.status === 'paidout'}
+            <div class="review-instructions">
+              <div>
+                The ethers for the translation have been transferred to the
+                translator.
+              </div>
+            </div>
+          {:else if translationDetails.status === 'cancelled'}
+            <div class="review-instructions">
+              <div>You cancelled this translation.</div>
+            </div>
+          {/if}
         </div>
       {/if}
     </main>
