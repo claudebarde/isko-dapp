@@ -25,7 +25,7 @@
     display: flex;
     flex-direction: column;
     justify-content: left;
-    align-items: left;
+    align-items: stretch;
     width: 40%;
     margin: 1.5rem;
     padding: 1.5rem;

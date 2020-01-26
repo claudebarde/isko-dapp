@@ -135,7 +135,7 @@
     cursor: pointer;
   }
   .status-paidout {
-    color: #ed64a6;
+    color: #4299e1;
     cursor: pointer;
   }
   .status-cancelled {
@@ -214,7 +214,7 @@
             <div>
               [
               <strong
-                class={job.status ? `status-${job.status}` : ''}
+                class={job.status ? `status-${job.status.toLowerCase()}` : ''}
                 title={`Status: ${job.status}`}
                 on:click={() => (job.status === 'delivered' ? push(`/review/${job.id}`) : null)}>
                 {shortenHash(job.id)}

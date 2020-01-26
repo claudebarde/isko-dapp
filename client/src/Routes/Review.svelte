@@ -7,6 +7,7 @@
   import Button from "../components/Button.svelte";
   import Modal from "../components/Modal.svelte";
   import ThumbsUp from "../components/Icons/ThumbsUp.svelte";
+  import Feedback from "../components/Feedback.svelte";
   import userStore from "../stores/user-store";
   import eventsStore from "../stores/events-store";
   import web3Store from "../stores/web3-store";
@@ -21,8 +22,12 @@
   let smContractInfo = undefined;
   let reviewEnabled = false;
   let openConfirmReviewModal = false;
+  let openApproveModal = false;
   let reviewSteps = "confirm"; // confirm | await_tx | await_firebase | success | error
+  let approveSteps = "confirm"; // confirm | await_tx | await_firebase | success | error
   let fetchingError = false;
+  let errorMsg = "";
+  let openFeedbackModal = false;
 
   const sendReviewRequest = async () => {
     const {
@@ -80,6 +85,62 @@
     }
   };
 
+  // changes status of translation to "approved" in database
+  const approve = async tip => {
+    approveSteps = "await_firebase";
+    try {
+      // approves translation
+      const approveTranslation = firebase
+        .functions()
+        .httpsCallable("approveTranslation");
+      const idToken = await firebase.auth().currentUser.getIdToken(true); // generates unique id token
+      const result = await approveTranslation({ jobID, idToken, tip });
+      if (!result.error) {
+        approveSteps = "success";
+        setTimeout(() => push("/account"), 3000);
+      } else {
+        throw new Error(result.msg);
+      }
+    } catch (error) {
+      console.log(error);
+      errorMsg = error;
+      approveSteps = "error";
+    }
+  };
+
+  // updates blockchain and changes status of translation in database
+  const approveAndTip = async () => {
+    approveSteps = "await_tx";
+    const {
+      web3,
+      contractInstance,
+      contractAddress,
+      currentAddress
+    } = $web3Store;
+    try {
+      const approveJob = await sendTxAndWait({
+        web3,
+        contractInstance,
+        currentAddress,
+        contractAddress,
+        value: 0,
+        method: "directPayOut",
+        methodParameters: [jobID]
+      });
+      if (approveJob.result === "tx_included") {
+        approve(true);
+      } else {
+        throw new Error(
+          "Transaction failed, the translation status couldn't be updated."
+        );
+      }
+    } catch (error) {
+      console.log(error);
+      errorMsg = error;
+      approveSteps = "error";
+    }
+  };
+
   onMount(() => {
     jobID = params.id;
     // fetches job from firebase
@@ -91,8 +152,8 @@
         // fetches translation from firebase
         const fetchTranslation = firebase
           .functions()
-          .httpsCallable("fetchTranslation"); // generates unique id token
-        const idToken = await firebase.auth().currentUser.getIdToken(true);
+          .httpsCallable("fetchTranslation");
+        const idToken = await firebase.auth().currentUser.getIdToken(true); // generates unique id token
         const result = await fetchTranslation({ jobID, idToken });
         if (result.data.error === false) {
           // we save the translation details
@@ -222,6 +283,10 @@
     margin: 0 auto;
     margin-top: 30px;
   }
+
+  .body__paragraph {
+    margin: 10px 0px;
+  }
 </style>
 
 {#if fetchingError}
@@ -242,6 +307,23 @@
       </div>
     </main>
   {:else}
+    {#if openFeedbackModal}
+      <Modal
+        type="info"
+        size="small"
+        on:close={() => (openFeedbackModal = false)}>
+        <div slot="title">Leave a feedback</div>
+        <div slot="body">
+          <Feedback
+            {jobID}
+            close={() => (openFeedbackModal = false)}
+            error={() => {
+              openFeedbackModal = false;
+              eventsStore.toggleWarningModal('An error has occurred while saving your feedback!<br /><br />');
+            }} />
+        </div>
+      </Modal>
+    {/if}
     {#if openConfirmReviewModal}
       <Modal
         type={reviewSteps === 'success' ? 'success' : reviewSteps === 'error' ? 'error' : 'info'}
@@ -266,13 +348,13 @@
             <div class="buttons">
               <div class="button">
                 <Button
-                  type="success"
+                  type={reviewSteps === 'confirm' ? 'success' : 'disabled'}
                   text="Cancel"
                   on:click={() => (openConfirmReviewModal = false)} />
               </div>
               <div class="button">
                 <Button
-                  type="warning"
+                  type={reviewSteps === 'confirm' ? 'warning' : 'disabled'}
                   text="Confirm"
                   on:click={sendReviewRequest} />
               </div>
@@ -287,7 +369,7 @@
             </div>
             <div class="dot-typing loader" />
           {:else if reviewSteps === 'await_firebase'}
-            <div class="text">Transation successful!</div>
+            <div class="text">Transaction successful!</div>
             <div class="text">Your account is being updated.</div>
             <div class="text">Please wait.</div>
             <div class="dot-typing loader" />
@@ -301,6 +383,86 @@
               <ThumbsUp />
             </div>
           {:else if reviewSteps === 'error'}
+            <div class="text">An error has occurred.</div>
+            <div class="text">Error message: {errorMsg}</div>
+          {/if}
+        </div>
+      </Modal>
+    {/if}
+    {#if openApproveModal}
+      <Modal
+        type={approveSteps === 'error' ? 'error' : 'success'}
+        size="small"
+        on:close={() => (openApproveModal = false)}>
+        <div slot="title">
+          {#if approveSteps === 'confirm'}
+            Approve Translation?
+          {:else if approveSteps === 'await_tx'}
+            Approval Pending
+          {:else if approveSteps === 'await_firebase'}
+            Saving Approval
+          {:else if approveSteps === 'success'}
+            Approval Successful!
+          {:else if approveSteps === 'error'}Error{/if}
+        </div>
+        <div slot="body">
+          {#if approveSteps === 'confirm'}
+            <div class="body__paragraph">
+              If you are happy with the translation, you can "tip" the
+              translator and pay for the transaction fees (a few cents) to
+              transfer directly the translation to his/her account by clicking
+              on "Approve and tip".
+            </div>
+            <div class="body__paragraph">
+              Otherwise, you can simply approve the translation with no charge
+              by clicking on "Approve".
+            </div>
+            <div class="body__paragraph">
+              Please note that the translation will be automatically considered
+              as approved after 5 days if you don't change its status yourself.
+            </div>
+            <div class="buttons">
+              <div class="button">
+                <Button
+                  type={approveSteps === 'confirm' ? 'warning' : 'disabled'}
+                  text="Cancel"
+                  on:click={() => (openApproveModal = false)} />
+              </div>
+              <div class="button">
+                <Button
+                  type={approveSteps === 'confirm' ? 'info' : 'disabled'}
+                  text="Approve"
+                  on:click={() => approve(false)} />
+              </div>
+              <div class="button">
+                <Button
+                  type={approveSteps === 'confirm' ? 'success' : 'disabled'}
+                  text="Approve and tip"
+                  on:click={approveAndTip} />
+              </div>
+            </div>
+          {:else if approveSteps === 'await_tx'}
+            <div class="text">
+              The request is being processed by the Ethereum network.
+            </div>
+            <div class="text">
+              This may take a couple minutes, please do not refresh, close or
+              leave the page.
+            </div>
+            <div class="dot-typing loader" />
+          {:else if approveSteps === 'await_firebase'}
+            <div class="text">Your account is being updated.</div>
+            <div class="text">Please wait.</div>
+            <div class="dot-typing loader" />
+          {:else if approveSteps === 'success'}
+            <div class="text">Thank you for approving this translation!</div>
+            <div class="text">
+              We hope to see you again soon with another translation.
+            </div>
+            <div style="text-align:center">
+              <ThumbsUp />
+            </div>
+          {:else if approveSteps === 'error'}
             <div class="text">An error has occurred.</div>
             <div class="text">Error message: {errorMsg}</div>
           {/if}
@@ -362,7 +524,16 @@
                 on:click={() => (openConfirmReviewModal = true)} />
             </div>
             <div class="button">
-              <Button type="success" text="Approve" />
+              <Button
+                type="info"
+                text="Leave Feedback"
+                on:click={() => (openFeedbackModal = true)} />
+            </div>
+            <div class="button">
+              <Button
+                type="success"
+                text="Approve"
+                on:click={() => (openApproveModal = true)} />
             </div>
           </div>
         </div>

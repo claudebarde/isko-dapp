@@ -8,7 +8,7 @@
   import userStore from "../../../stores/user-store";
   import { shortenHash, fromWeiToEther } from "../../../utils/functions";
   import ActiveTranslationEntry from "./ActiveTranslationEntry.svelte";
-  import PendingTranslationEntry from "./PendingTranslationEntry.svelte";
+  import TranslationEntry from "./TranslationEntry.svelte";
   import AlertTriangle from "../../Icons/AlertTriangle.svelte";
 
   let langPairFrom = undefined;
@@ -51,7 +51,10 @@
     <div class="account-card">
       <div class="account-card__content">
         <div>Name</div>
-        <div>{`${$userStore.info.firstname} ${$userStore.info.lastname}`}</div>
+        <div>
+          {`${$userStore.info.firstname} ${$userStore.info.lastname}`}
+          <img src="images/edit.svg" alt="add" class="external-link" />
+        </div>
       </div>
       <div class="account-card__content">
         <div>User ID</div>
@@ -67,6 +70,10 @@
               class="external-link" />
           </a>
         </div>
+      </div>
+      <div class="account-card__content">
+        <div>Email address</div>
+        <div>{$userStore.info.email}</div>
       </div>
       <div class="account-card__content">
         <div>Current Balance</div>
@@ -113,29 +120,33 @@
         </div>
       </div>
       <div class="account-card__content">
-        <div>Number of translations</div>
-        <div>{$userStore.info.numberOfTranslations}</div>
-      </div>
-      <div class="account-card__content">
-        <div>Feedbacks</div>
-        {#if $userStore.info.feedbacks.length <= 5}
-          Min. 5 feedbacks required
-        {:else}
-          <div>
-            Note: {$userStore.info.feedbacks
-              .map(feedback => feedback.note)
-              .reduce((a, b) => a + b) / $userStore.info.feedbacks.length}/5
-          </div>
-        {/if}
-      </div>
-    </div>
-    <div class="account-card">
-      <div class="account-card__content">
         <div>Language Pair</div>
         <div>
           {`${langs.where('3', $userStore.info.languagePairs[0].from).name} => ${langs.where('3', $userStore.info.languagePairs[0].to).name}`}
         </div>
       </div>
+      <div class="account-card__content">
+        <div>Number of translations</div>
+        <div>{$userStore.info.numberOfTranslations}</div>
+      </div>
+      <div class="account-card__content" style="text-align:right">
+        <div>Feedbacks</div>
+        {#if Object.keys($userStore.info.feedbacks).length < 5}
+          <span class="no-feedback">
+            Min. 5 feedbacks required
+            <br />
+            (currently {Object.keys($userStore.info.feedbacks).length})
+          </span>
+        {:else}
+          <div>
+            Note: {Object.keys($userStore.info.feedbacks)
+              .map(jobID => $userStore.info.feedbacks[jobID].note)
+              .reduce((a, b) => a + b) / Object.keys($userStore.info.feedbacks).length}
+          </div>
+        {/if}
+      </div>
+    </div>
+    <div class="account-card">
       <div class="account-card__content" style="width:100%">
         <div class="user-translations">
           <p>Active Translations</p>
@@ -146,19 +157,6 @@
               web3={$web3Store.web3} />
           {:else}
             <div>No active translation</div>
-          {/each}
-        </div>
-      </div>
-      <div class="account-card__content">
-        <div class="user-translations">
-          <div>Pending Translations</div>
-          {#each Object.keys($userStore.info.pendingTranslations) as transl}
-            <PendingTranslationEntry
-              translHash={transl}
-              transl={$userStore.info.pendingTranslations[transl]}
-              web3={$web3Store.web3} />
-          {:else}
-            <p>No pending translation</p>
           {/each}
         </div>
       </div>
@@ -180,14 +178,29 @@
     </div>
     <div class="account-card">
       <div class="account-card__content">
-        <div>Email address</div>
-        <div>{$userStore.info.email}</div>
+        <div class="user-translations">
+          <div>Pending Translations</div>
+          {#each Object.keys($userStore.info.pendingTranslations) as transl}
+            <TranslationEntry
+              translHash={transl}
+              transl={$userStore.info.pendingTranslations[transl]}
+              web3={$web3Store.web3} />
+          {:else}
+            <p>No pending translation</p>
+          {/each}
+        </div>
       </div>
       <div class="account-card__content">
-        <div>Update name</div>
-        <div>
-          {`${$userStore.info.firstname} ${$userStore.info.lastname}`}
-          <img src="images/edit.svg" alt="add" class="external-link" />
+        <div class="user-translations">
+          <div>PaidOut Translations</div>
+          {#each Object.keys($userStore.info.paidOutTranslations) as transl}
+            <TranslationEntry
+              translHash={transl}
+              transl={$userStore.info.paidOutTranslations[transl]}
+              web3={$web3Store.web3} />
+          {:else}
+            <p>No paidOut translation</p>
+          {/each}
         </div>
       </div>
     </div>

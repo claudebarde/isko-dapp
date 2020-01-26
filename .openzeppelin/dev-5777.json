@@ -1,11 +1,11 @@
 {
   "contracts": {
     "IskoDapp": {
-      "address": "0xaE6D04e23FB6660f64fcf813402e1aF6a1f520EC",
-      "constructorCode": "608060405234801561001057600080fd5b50612e17806100206000396000f3fe",
-      "bodyBytecodeHash": "8a3d787250c96c775980a71603d115744cbb99f812c4932a450f7d7fa4a66339",
-      "localBytecodeHash": "a7b24524c858cd45eda2735f7000899df1fec9743989decce229a1bd3a2d881a",
-      "deployedBytecodeHash": "a7b24524c858cd45eda2735f7000899df1fec9743989decce229a1bd3a2d881a",
+      "address": "0x1910e9237415CcADD343B0c7df3dE6106B10343c",
+      "constructorCode": "608060405234801561001057600080fd5b50613bc9806100206000396000f3fe",
+      "bodyBytecodeHash": "d42cc9bf95efb29771c9e890c263fb394e4666ca344b8818d6d3f5d3c1fe764d",
+      "localBytecodeHash": "a99d507553988a19c8eec2710e0cb91c9278e64fe5e5f02cf286484051305a37",
+      "deployedBytecodeHash": "a99d507553988a19c8eec2710e0cb91c9278e64fe5e5f02cf286484051305a37",
       "types": {
         "t_bool": {
           "id": "t_bool",
@@ -38,37 +38,37 @@
               "label": "customer",
               "astId": 269,
               "type": "t_address_payable",
-              "src": "422:24:2"
+              "src": "427:24:2"
             },
             {
               "label": "price",
               "astId": 271,
               "type": "t_uint256",
-              "src": "456:10:2"
+              "src": "461:13:2"
             },
             {
               "label": "timestamp",
               "astId": 273,
               "type": "t_uint256",
-              "src": "476:14:2"
+              "src": "484:17:2"
             },
             {
               "label": "status",
               "astId": 275,
               "type": "t_enum<IskoDapp.JobStatus>",
-              "src": "500:16:2"
+              "src": "511:16:2"
             },
             {
               "label": "translator",
               "astId": 277,
               "type": "t_address_payable",
-              "src": "526:26:2"
+              "src": "537:26:2"
             },
             {
               "label": "deliveredOn",
               "astId": 279,
               "type": "t_uint256",
-              "src": "562:16:2"
+              "src": "573:19:2"
             }
           ]
         },
@@ -129,7 +129,7 @@
           "label": "owner",
           "astId": 258,
           "type": "t_address_payable",
-          "src": "263:29:2"
+          "src": "267:29:2"
         },
         {
           "contract": "IskoDapp",
@@ -137,7 +137,7 @@
           "label": "fee",
           "astId": 260,
           "type": "t_uint256",
-          "src": "298:15:2"
+          "src": "302:18:2"
         },
         {
           "contract": "IskoDapp",
@@ -145,7 +145,7 @@
           "label": "jobs",
           "astId": 284,
           "type": "t_mapping<t_struct<IskoDapp.Job>>",
-          "src": "590:34:2"
+          "src": "604:34:2"
         },
         {
           "contract": "IskoDapp",
@@ -153,7 +153,7 @@
           "label": "translators",
           "astId": 288,
           "type": "t_mapping<t_uint256>",
-          "src": "630:43:2"
+          "src": "644:46:2"
         },
         {
           "contract": "IskoDapp",
@@ -161,7 +161,7 @@
           "label": "generalRevenue",
           "astId": 290,
           "type": "t_uint256",
-          "src": "679:22:2"
+          "src": "696:22:2"
         }
       ],
       "warnings": {
@@ -177,7 +177,7 @@
             "label": "jobs",
             "astId": 284,
             "type": "t_mapping<t_struct<IskoDapp.Job>>",
-            "src": "590:34:2"
+            "src": "604:34:2"
           }
         ],
         "storageDiff": []
@@ -188,10 +188,10 @@
   "proxies": {
     "isko-dapp/IskoDapp": [
       {
-        "address": "0x5Df4d75e02B581AC9ecb6c2dE33A0a215FF4e3aE",
+        "address": "0x0805a7BF67708B7171DF67aBC000ea43fAB8F5bc",
         "version": "1.0.0",
-        "implementation": "0xaE6D04e23FB6660f64fcf813402e1aF6a1f520EC",
-        "admin": "0x98C5C094d8d7E51a9EB23D2404f424013Adb6986",
+        "implementation": "0x1910e9237415CcADD343B0c7df3dE6106B10343c",
+        "admin": "0x7bA5BC555E1c59B9120976836cF6c1576107cE7C",
         "kind": "Upgradeable"
       }
     ]
@@ -199,6 +199,6 @@
   "manifestVersion": "2.2",
   "version": "1.0.0",
   "proxyAdmin": {
-    "address": "0x98C5C094d8d7E51a9EB23D2404f424013Adb6986"
+    "address": "0x7bA5BC555E1c59B9120976836cF6c1576107cE7C"
   }
 }

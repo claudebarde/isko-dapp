@@ -102,106 +102,116 @@
   };
 
   const submitTranslation = async event => {
-    submitTransModal = true;
-    loadingSubmit = true;
-    let data = { ...event.detail };
-    // updating translation status in the blockchain
-    const {
-      web3,
-      contractInstance,
-      currentAddress,
-      contractAddress
-    } = $web3Store;
-    try {
-      const result = await sendTxAndWait({
+    if (!["0", "1", "3"].includes(smContractInfo.status.toString())) {
+      wrongSmStatus = true;
+      eventsStore.toggleWarningModal(
+        `<p>This translation doesn't have the proper status on the blockchain.</p><p>If you continue, you may not be paid for this job!</p><p>Please contact customer service with the reference number, thank you.</p><p>Ref: ${jobID}</p>`
+      );
+      return;
+    } else {
+      submitTransModal = true;
+      loadingSubmit = true;
+      let data = { ...event.detail };
+      // updating translation status in the blockchain
+      const {
         web3,
         contractInstance,
         currentAddress,
-        contractAddress,
-        method: "deliverJob",
-        methodParameters: [jobID]
-      });
-      //const result = { result: "tx_included" };
-      if (result.result === "tx_included") {
-        // if file is sent
-        if (data.type === "file") {
-          data = { ...data, fileName: uuidv4() };
-          // uploads file first before saving job
-          // creates reference to storage
-          const storage = firebase.storage().ref();
-          // creates file reference
-          const ref = storage.child(
-            `${translationDetails.content.folder}/delivered/${data.fileName}`
-          );
-          // uploads file
-          const snapshot = await ref.put(data.file.file);
-          //console.log(snapshot);
-          if (snapshot.state !== "success")
-            throw new Error("Couldn't upload the file!");
-          delete data.file;
-        } else if (data.type === "text") {
-          // status property in segment is useless
-          data.translationGrid.forEach(segment => {
-            delete segment.status;
-          });
-        } else {
-          throw new Error("Unexpected translation type");
-        }
-        // if transaction was included, we send the file or text and update the translation in firebase
-        pendingSubmitTransTx = false;
-        pendingSubmitTransAccount = true;
-        // if everything is OK, we update database
-        const submitCompletedTranslation = firebase
-          .functions()
-          .httpsCallable("submitCompletedTranslation"); // generates unique id token
-        const idToken = await firebase.auth().currentUser.getIdToken(true);
-        const result = await submitCompletedTranslation({
-          jobID,
-          idToken,
-          status: smContractInfo.status.toString(),
-          ...data
+        contractAddress
+      } = $web3Store;
+      try {
+        const result = await sendTxAndWait({
+          web3,
+          contractInstance,
+          currentAddress,
+          contractAddress,
+          method: "deliverJob",
+          methodParameters: [jobID]
         });
-        if (result.data.error === false) {
-          loading = false;
-          pendingSubmitTransTx = false;
-          pendingSubmitTransAccount = false;
-          pendingSubmitTransError = false;
-          loadingSubmit = false;
-          pendingSubmitTransSuccess = true;
-          setTimeout(() => {
-            submitTransModal = false;
-            push("/market");
-          }, 1500);
-        } else {
-          if (result.data.msg) {
-            throw new Error({
-              result: "firebase_error",
-              errorMsg: result.data.msg
+        //const result = { result: "tx_included" };
+        if (result.result === "tx_included") {
+          // if file is sent
+          if (data.type === "file") {
+            data = { ...data, fileName: uuidv4() };
+            // uploads file first before saving job
+            // creates reference to storage
+            const storage = firebase.storage().ref();
+            // creates file reference
+            const ref = storage.child(
+              `${translationDetails.content.folder}/delivered/${data.fileName}`
+            );
+            // uploads file
+            const snapshot = await ref.put(data.file.file);
+            //console.log(snapshot);
+            if (snapshot.state !== "success")
+              throw new Error("Couldn't upload the file!");
+            delete data.file;
+          } else if (data.type === "text") {
+            // status property in segment is useless
+            data.translationGrid.forEach(segment => {
+              delete segment.status;
             });
           } else {
-            throw new Error({
-              result: "firebase_error",
-              errorMsg:
-                "An error has occurred while saving the job on the server!"
-            });
+            console.log("Unexpected translation type");
+            throw new Error("Unexpected translation type");
           }
+          // if transaction was included, we send the file or text and update the translation in firebase
+          pendingSubmitTransTx = false;
+          pendingSubmitTransAccount = true;
+          // if everything is OK, we update database
+          const submitCompletedTranslation = firebase
+            .functions()
+            .httpsCallable("submitCompletedTranslation"); // generates unique id token
+          const idToken = await firebase.auth().currentUser.getIdToken(true);
+          const result = await submitCompletedTranslation({
+            jobID,
+            idToken,
+            status: smContractInfo.status.toString(),
+            ...data
+          });
+          if (result.data.error === false) {
+            loading = false;
+            pendingSubmitTransTx = false;
+            pendingSubmitTransAccount = false;
+            pendingSubmitTransError = false;
+            loadingSubmit = false;
+            pendingSubmitTransSuccess = true;
+            setTimeout(() => {
+              submitTransModal = false;
+              push("/market");
+            }, 1500);
+          } else {
+            console.log(result);
+            if (result.data.msg) {
+              throw new Error({
+                result: "firebase_error",
+                errorMsg: result.data.msg
+              });
+            } else {
+              throw new Error({
+                result: "firebase_error",
+                errorMsg:
+                  "An error has occurred while saving the job on the server!"
+              });
+            }
+          }
+        } else {
+          throw new Error(result);
         }
-      } else {
-        throw new Error(result);
-      }
-    } catch (error) {
-      console.log(error);
-      // if transaction did not go through
-      loadingSubmit = false;
-      pendingSubmitTransTx = false;
-      pendingSubmitTransAccount = false;
-      pendingSubmitTransError = true;
-      pendingSubmitTransErrorMessage = errorMessage(error);
-      // if error was returned
-      if (error.errorMsg) {
-        pendingSubmitTransErrorMessage += `: ${error.errorMsg}`;
-      } else if (error.message) {
-        pendingSubmitTransErrorMessage += `: ${error.message}`;
+      } catch (error) {
+        console.log(error);
+        // if transaction did not go through
+        loadingSubmit = false;
+        pendingSubmitTransTx = false;
+        pendingSubmitTransAccount = false;
+        pendingSubmitTransError = true;
+        pendingSubmitTransErrorMessage = errorMessage(error);
+        // if error was returned
+        if (error.errorMsg) {
+          pendingSubmitTransErrorMessage += `: ${error.errorMsg}`;
+        } else if (error.message) {
+          pendingSubmitTransErrorMessage += `: ${error.message}`;
+        }
       }
     }
   };
@@ -258,7 +268,7 @@
     // displays warning message to translator if translation doesnt have "accepted" status
     if (
       smContractInfo &&
-      ![1, 3].includes(parseInt(smContractInfo.status)) &&
+      ![0, 1, 3].includes(parseInt(smContractInfo.status)) &&
       !!translationDetails.timestamp &&
       !wrongSmStatus
     ) {
@@ -372,7 +382,7 @@
           </div>
         {:else if cancelationError === false}
           <div class="cancelation-msg">
-            <p>
+            <p style="text-align:center">
               <img src="images/thumbs-up.svg" alt="thumbs-up" />
               The translation was successfully canceled!
             </p>
@@ -460,7 +470,10 @@
   <Modal
     type={submitTransModalType}
     size="small"
-    on:close={() => (submitTransModal = false)}>
+    on:close={() => {
+      submitTransModal = false;
+      pendingSubmitTransTx = true;
+    }}>
     <div slot="title">Submit Translation</div>
     <div slot="body">
       {#if pendingSubmitTransTx}
@@ -483,7 +496,7 @@
       {:else if pendingSubmitTransSuccess}
         <p>Your translation has been successfully submitted!</p>
         <p>Thank you for your collaboration.</p>
-        <p>
+        <p style="text-align:center">
           <img src="images/thumbs-up.svg" alt="thumbs-up" />
         </p>
       {:else if pendingSubmitTransError}

@@ -32,7 +32,9 @@
 </style>
 
 <div class="grid">
-  <div>{shortenHash(translHash)}</div>
+  <div>
+    <strong>{shortenHash(translHash)}</strong>
+  </div>
   <div>Ξ{fromWeiToEther(web3, transl.price)}</div>
   <div>
     {#if dateNow - transl.deliveredOn < 1000 * 60 * 60 * 24 * 5}

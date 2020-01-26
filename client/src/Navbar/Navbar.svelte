@@ -443,7 +443,7 @@
 {/if}
 <nav class="navbar">
   <div class="navbar-logo">
-    <a href="/" use:link>Isko Eth</a>
+    <a href="/" use:link>Isko</a>
   </div>
   <div class="navbar-menu">
     <div>
