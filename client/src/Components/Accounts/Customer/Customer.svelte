@@ -217,6 +217,11 @@
         <div class="jobs-history">
           {#each $userStore.info.jobs.slice(0, 6) as job}
             <div>
+              {#if job.supportType === 'text'}
+                <img src="images/file-text.svg" alt="text type" />
+              {:else}
+                <img src="images/file.svg" alt="file type" />
+              {/if}
               [
               <strong
                 class={job.status ? `status-${job.status.toLowerCase()}` : ''}

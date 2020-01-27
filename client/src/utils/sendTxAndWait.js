@@ -1,6 +1,5 @@
 let subscription = undefined;
 let txHash = 0;
-let blockCount = 0;
 
 const unsubscribe = () => {
   // unsubscribes the subscription
@@ -93,9 +92,6 @@ export const sendTxAndWait = ({
         }
       })
       .on("data", async blockHeader => {
-        // we wait 3 new blocks to confirm transaction
-        if (blockCount > 0) blockCount++;
-
         const blockHash = blockHeader.hash;
         try {
           // fetches block
@@ -104,10 +100,6 @@ export const sendTxAndWait = ({
           const { transactions } = block;
           // updates txHash
           if (transactions.includes(txHash)) {
-            blockCount = 1;
-          }
-          // after 2 blocks, we send transaction success
-          if (blockCount >= 2) {
             unsubscribe();
             resolve({ result: "tx_included", txHash });
           }

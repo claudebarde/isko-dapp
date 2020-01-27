@@ -221,7 +221,7 @@
     savedToTheBlockchain = false; // display message
     reviewJob = false; // display progression
     // creates unique id
-    let jobID = uuidv4();
+    let jobID = supportType === "text" ? "tt-" : "fi-" + uuidv4();
     // creates and sends transaction
     try {
       const result = await sendTxAndWait({
