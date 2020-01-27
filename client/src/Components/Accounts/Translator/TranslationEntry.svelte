@@ -6,6 +6,7 @@
   export let translHash;
   export let transl;
   export let web3;
+  export let type;
 
   let interval;
   let dateNow = Date.now();
@@ -37,8 +38,10 @@
   </div>
   <div>Ξ{fromWeiToEther(web3, transl.price)}</div>
   <div>
-    {#if dateNow - transl.deliveredOn < 1000 * 60 * 60 * 24 * 5}
-      Delivered {timeSinceDelivered}
-    {:else}Ready for payment{/if}
+    {#if type === 'pending'}
+      {#if dateNow - transl.deliveredOn < 1000 * 60 * 60 * 24 * 5}
+        Delivered {timeSinceDelivered}
+      {:else}Ready for pay out request{/if}
+    {:else if type === 'paidout'}Ready for payment{/if}
   </div>
 </div>

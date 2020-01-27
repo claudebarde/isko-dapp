@@ -184,7 +184,8 @@
             <TranslationEntry
               translHash={transl}
               transl={$userStore.info.pendingTranslations[transl]}
-              web3={$web3Store.web3} />
+              web3={$web3Store.web3}
+              type="pending" />
           {:else}
             <p>No pending translation</p>
           {/each}
@@ -197,7 +198,8 @@
             <TranslationEntry
               translHash={transl}
               transl={$userStore.info.paidOutTranslations[transl]}
-              web3={$web3Store.web3} />
+              web3={$web3Store.web3}
+              type="paidout" />
           {:else}
             <p>No paidOut translation</p>
           {/each}

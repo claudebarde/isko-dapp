@@ -1,7 +1,6 @@
 let subscription = undefined;
 let txHash = 0;
-let result = "";
-let errorMsg;
+let blockCount = 0;
 
 const unsubscribe = () => {
   // unsubscribes the subscription
@@ -94,13 +93,21 @@ export const sendTxAndWait = ({
         }
       })
       .on("data", async blockHeader => {
+        // we wait 3 new blocks to confirm transaction
+        if (blockCount > 0) blockCount++;
+
         const blockHash = blockHeader.hash;
         try {
           // fetches block
           const block = await web3.eth.getBlock(blockHash);
           // gets the transactions from block
           const { transactions } = block;
+          // updates txHash
           if (transactions.includes(txHash)) {
+            blockCount = 1;
+          }
+          // after 2 blocks, we send transaction success
+          if (blockCount >= 2) {
             unsubscribe();
             resolve({ result: "tx_included", txHash });
           }

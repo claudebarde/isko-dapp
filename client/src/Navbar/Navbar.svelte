@@ -192,7 +192,6 @@
 
   const checkJobsStatus = async jobs => {
     // "approved" is an internal status that doesn't appear on the blockchain
-    console.log(jobs);
     return await Promise.all(
       jobs.reverse().map(
         async job =>
