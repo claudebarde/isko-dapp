@@ -267,12 +267,13 @@
     align-items: flex-end;
     border-top: solid 1px #cbd5e0;
     margin-bottom: 30px;
+    padding-top: 30px;
   }
 
   .review-instructions div {
     width: 50%;
     padding: 10px 20px 0px 20px;
-    text-align: right;
+    text-align: center;
   }
 
   .text {
@@ -286,6 +287,19 @@
 
   .body__paragraph {
     margin: 10px 0px;
+  }
+
+  .link-to-file {
+    margin: 30px 10px;
+  }
+  .link-to-file a {
+    font-weight: bold;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .status-img img {
+    width: 300px;
   }
 </style>
 
@@ -507,10 +521,23 @@
                   {/if}
                 </div>
               </div>
-            {:else}Translation File{/if}
+            {:else}
+              <div class="link-to-file">
+                <a
+                  href={translationDetails.content.url[0]}
+                  rel="noopener noreferrer"
+                  download={translationDetails.content.name}
+                  target="_blank">
+                  Download Submitted File
+                </a>
+              </div>
+            {/if}
           {/if}
           {#if translationDetails.status === 'available'}
             <div class="review-instructions">
+              <div class="status-img">
+                <img src="images/undraw_Bus_stop.svg" alt="waiting" />
+              </div>
               <div>
                 The translation is on the job market waiting for a translator to
                 accept it.
@@ -556,10 +583,16 @@
             </div>
           {:else if translationDetails.status === 'approved'}
             <div class="review-instructions">
+              <div class="status-img">
+                <img src="images/undraw_confirmation.svg" alt="waiting" />
+              </div>
               <div>You approved this translation.</div>
             </div>
           {:else if translationDetails.status === 'paidout'}
             <div class="review-instructions">
+              <div class="status-img">
+                <img src="images/undraw_transfer_money.svg" alt="waiting" />
+              </div>
               <div>
                 The ethers for the translation have been transferred to the
                 translator.
