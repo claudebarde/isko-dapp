@@ -504,6 +504,7 @@
             <TranslationComments
               comments={translationDetails.comments}
               {jobID}
+              status={translationDetails.status}
               on:new-comment={event => {
                 translationDetails.comments = [...translationDetails.comments, event.detail];
                 reviewEnabled = true;

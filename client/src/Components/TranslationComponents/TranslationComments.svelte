@@ -6,7 +6,7 @@
   import eventsStore from "../../stores/events-store";
   import userStore from "../../stores/user-store";
 
-  export let comments, jobID;
+  export let comments, jobID, status;
 
   const dispatch = createEventDispatcher();
   let openNewComment = false;
@@ -103,24 +103,26 @@
     {/each}
   </div>
 {/if}
-<div class="add-comment" on:click={() => (openNewComment = !openNewComment)}>
-  <img
-    src="images/chevron-right.svg"
-    alt="chevron right"
-    id="comment-chevron"
-    class={openNewComment ? 'rotate' : 'no-rotate'} />
-  Add a comment
-</div>
-{#if openNewComment}
-  <div
-    transition:slide={{ x: 100, duration: 500 }}
-    class="new-comment-container">
-    <textarea
-      rows="2"
-      placeholder="Enter your comment here, press Enter to save..."
-      maxlength="200"
-      disabled={disableNewComment}
-      on:keydown={validateComment}
-      bind:value={newComment} />
+{#if status === 'available' || status === 'accepted' || status === 'delivered' || status === 'review'}
+  <div class="add-comment" on:click={() => (openNewComment = !openNewComment)}>
+    <img
+      src="images/chevron-right.svg"
+      alt="chevron right"
+      id="comment-chevron"
+      class={openNewComment ? 'rotate' : 'no-rotate'} />
+    Add a comment
   </div>
+  {#if openNewComment}
+    <div
+      transition:slide={{ x: 100, duration: 500 }}
+      class="new-comment-container">
+      <textarea
+        rows="2"
+        placeholder="Enter your comment here, press Enter to save..."
+        maxlength="200"
+        disabled={disableNewComment}
+        on:keydown={validateComment}
+        bind:value={newComment} />
+    </div>
+  {/if}
 {/if}
