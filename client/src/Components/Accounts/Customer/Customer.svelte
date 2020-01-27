@@ -18,6 +18,7 @@
   let newEmail = $userStore.info.email;
   let updateButtonType = "success";
   let updateButtonText = "Save";
+  let openHistoryModal = false;
 
   const updateName = () => {
     updateButtonType = "success";
@@ -117,6 +118,18 @@
     flex-direction: column;
   }
 
+  .icon {
+    vertical-align: middle;
+    width: 15px;
+  }
+
+  .payment-history-line {
+    text-align: left;
+    width: 40%;
+    margin: 0 auto;
+    padding: 5px;
+  }
+
   /*Colors for job status*/
   .status-available {
     color: #f56565;
@@ -149,12 +162,32 @@
   }
 </style>
 
+{#if openHistoryModal}
+  <Modal type="info" size="small" on:close={() => (openHistoryModal = false)}>
+    <div slot="title">Payments History</div>
+    <div slot="body">
+      {#each $userStore.info.jobs.slice(0, 6) as job}
+        <p class="payment-history-line">
+          Ξ{fromWeiToEther($web3Store.web3, job.price)}
+          <span class="date">{moment(job.timestamp).format('MM/DD/YYYY')}</span>
+        </p>
+      {/each}
+    </div>
+  </Modal>
+{/if}
 {#if $userStore.info}
   <div class="account-container" in:fly={{ y: -100, duration: 500 }}>
     <div class="account-card">
       <div class="account-card__content">
         <div>Name</div>
-        <div>{`${$userStore.info.firstname} ${$userStore.info.lastname}`}</div>
+        <div>
+          {`${$userStore.info.firstname} ${$userStore.info.lastname}`}
+          <img
+            src="images/edit.svg"
+            alt="add"
+            class="icon"
+            on:click={updateName} />
+        </div>
       </div>
       <div class="account-card__content">
         <div>Account Address</div>
@@ -180,7 +213,14 @@
                   </span>
                 </div>
               {/each}
-            {:else}Long history{/if}
+            {:else}
+              <div
+                on:click={() => (openHistoryModal = true)}
+                style="cursor:pointer">
+                Show history
+                <img src="images/list.svg" alt="history" class="icon" />
+              </div>
+            {/if}
           {:else}Loading...{/if}
         </div>
       </div>
@@ -212,15 +252,17 @@
           <Button type="success" text="Start" on:click={() => push('/order')} />
         </div>
       </div>
+    </div>
+    <div class="account-card">
       <div class="account-card__content">
         <div>Jobs History</div>
         <div class="jobs-history">
           {#each $userStore.info.jobs.slice(0, 6) as job}
             <div>
-              {#if job.supportType === 'text'}
-                <img src="images/file-text.svg" alt="text type" />
+              {#if job.id.slice(0, 2) === 'fi'}
+                <img src="images/file.svg" alt="file type" class="icon" />
               {:else}
-                <img src="images/file.svg" alt="file type" />
+                <img src="images/file-text.svg" alt="text type" class="icon" />
               {/if}
               [
               <strong
@@ -235,19 +277,6 @@
               </span>
             </div>
           {:else}No job history{/each}
-        </div>
-      </div>
-    </div>
-    <div class="account-card">
-      <div class="account-card__content">
-        <div>Update name</div>
-        <div>
-          {`${$userStore.info.firstname} ${$userStore.info.lastname}`}
-          <img
-            src="images/edit.svg"
-            alt="add"
-            class="external-link"
-            on:click={updateName} />
         </div>
       </div>
     </div>

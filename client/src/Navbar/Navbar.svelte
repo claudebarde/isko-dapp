@@ -134,6 +134,7 @@
               .collection("customers")
               .doc(user.uid)
               .onSnapshot(async doc => {
+                console.log("customer account updated");
                 if (doc.exists) {
                   userStore.updateAccountInfo({
                     ...doc.data(),
