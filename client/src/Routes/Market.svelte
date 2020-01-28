@@ -22,6 +22,7 @@
   let claimingJobErrorMsg =
     "<p>There was an error when claiming this job.</p><p>This can happen if the job is not available anymore or has been cancelled.</p>";
   let claimingJobSuccess = false;
+  let jobEntryDelay = 0;
 
   const claimJob = async jobID => {
     const {
@@ -239,6 +240,13 @@
     margin-bottom: 40px;
   }
 
+  .market-pic {
+    text-align: center;
+  }
+  .market-pic img {
+    width: 300px;
+  }
+
   @media (max-width: 1024px) {
     .job {
       width: 95%;
@@ -294,6 +302,12 @@
   {/if}
   <main>
     <h1>Market Page</h1>
+    <div class="market-pic">
+      <img
+        src="images/undraw_shared_workspace.svg"
+        alt="market"
+        class="market-pic" />
+    </div>
     <h3>Find here all the translation jobs</h3>
     <div class="account-container">
       {#if $userStore.accountType === 'customer'}
@@ -304,7 +318,13 @@
         </div>
       {/if}
       {#each availableJobs as job, index (job.id)}
-        <JobEntry {job} on:claimJob={event => claimJob(event.detail)} />
+        <JobEntry
+          {job}
+          on:claimJob={event => claimJob(event.detail)}
+          delay={(() => {
+            jobEntryDelay += 50;
+            return jobEntryDelay;
+          })()} />
       {:else}
         {#if loadingMarketError}
           <p class="job">Could not load new translation jobs!</p>

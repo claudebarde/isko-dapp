@@ -7,6 +7,7 @@
   import userStore from "../stores/user-store";
 
   export let job;
+  export let delay;
 
   const dispatch = createEventDispatcher();
   let showComments = false;
@@ -94,7 +95,7 @@
     duedate: job.duedate,
     timestamp: job.timestamp
   })}`}
-  in:fly={{ y: 200, duration: 500 }}>
+  in:fly={{ y: -400, duration: 900, delay }}>
   <div class="job-details">
     <div>
       <p>

@@ -5,12 +5,14 @@
   import TranslationTool from "./Routes/TranslationTool.svelte";
   import CreateNewJob from "./Routes/CreateNewJob.svelte";
   import JobView from "./Routes/JobView.svelte";
+  import About from "./Routes/About.svelte";
   import Router from "svelte-spa-router";
   import Navbar from "./Navbar/Navbar.svelte";
   import ConnectedServices from "./Components/ConnectedServices.svelte";
 
   const routes = {
     "/": Home,
+    "/about": About,
     "/account": Account,
     "/market": Market,
     "/translate/:id?": TranslationTool,

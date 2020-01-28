@@ -161,7 +161,7 @@
       userStore.connectedUser(false);
       userStore.updateAccountType("visitor");
       // goes back to main page
-      if (location !== "/") push("/");
+      if ($location !== "/" && $location !== "/about") push("/");
     }
   });
 
@@ -453,7 +453,7 @@
   </div>
   <div class="navbar-menu">
     <div>
-      <a href="/translate" use:link>Translate</a>
+      <a href="/about" use:link>About</a>
     </div>
     <div>
       <a href="/market" use:link>Market</a>

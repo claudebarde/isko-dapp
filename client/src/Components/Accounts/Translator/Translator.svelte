@@ -193,7 +193,7 @@
       </div>
       <div class="account-card__content">
         <div class="user-translations">
-          <div>PaidOut Translations</div>
+          <div>Paid Out Translations</div>
           {#each Object.keys($userStore.info.paidOutTranslations) as transl}
             <TranslationEntry
               translHash={transl}

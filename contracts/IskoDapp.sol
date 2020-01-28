@@ -222,13 +222,14 @@ contract IskoDapp is Initializable {
     }
 
     // pays freelancer on request
-    function payTranslator() public {
-        // address must be registered
-        // 10 wei are left in the balance to keep the account active
-        require(translators[msg.sender] > 10, "Your balance is empty");
-        uint256 balance = translators[msg.sender] - 10;
-        translators[msg.sender] = 10;
-        msg.sender.transfer(balance);
+    function payTranslator(uint amount) public {
+        // translator must have enough balance to request a withdrawal
+        require(translators[msg.sender] >= amount, "You don't have enough balance!");
+        // requested amount must be above zero
+        require(amount > 0, "The requested amount cannot be 0.");
+        uint256 balance = translators[msg.sender];
+        translators[msg.sender] = balance - amount;
+        msg.sender.transfer(amount);
     }
 
     // manually updates job status in case of error
