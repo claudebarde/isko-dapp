@@ -19,7 +19,6 @@
   import "firebase/firestore";
 
   const dispatch = createEventDispatcher();
-  let isUserTooltipOpen = false;
   const { toastTypes } = $eventsStore;
   const { toggleToast, setToastType } = eventsStore;
   let subscribeToAccount;
@@ -361,6 +360,7 @@
   .menu-item-address__text {
     color: #edf2f7;
     font-style: italic;
+    font-weight: bold;
     text-transform: uppercase;
   }
 
@@ -509,17 +509,9 @@
         {:else}
           <Dot type="error" />
         {/if}
-        <span
-          class="menu-item-address__text"
-          on:mouseenter={() => (isUserTooltipOpen = true)}
-          on:mouseleave={() => (isUserTooltipOpen = false)}>
+        <span class="menu-item-address__text">
           {$web3Store.currentAddress === undefined ? '🚫' : $web3Store.currentAddress.slice(0, 6) + '...' + $web3Store.currentAddress.slice(-4)}
         </span>
-        {#if isUserTooltipOpen && userStore.accountType === 'translator'}
-          <Tooltip
-            content={['Current balance:', `${$web3Store.web3.utils.fromWei($userStore.balance, 'ether')} ether`]}
-            align="right" />
-        {/if}
       </div>
     {/if}
   </div>

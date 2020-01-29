@@ -447,9 +447,25 @@
     width: 50%;
     margin-bottom: 40px;
   }
+
+  .loading {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
 </style>
 
-{#if !firebase.auth().currentUser}
+{#if $userStore.isUserConnected === undefined}
+  <main>
+    <div class="loading">
+      <p>Loading...</p>
+      <br />
+      <div class="dot-typing" />
+    </div>
+  </main>
+{:else if !$userStore.isUserConnected}
   <main>
     <div class="container no-access">
       <img src="images/undraw_ethereum.svg" alt="ethereum" class="picture" />
@@ -671,7 +687,9 @@
               accept=".doc, .docx, .xls, .xlsx, .pdf, .txt, .rtf, .csv"
               on:change={checkFile} />
             <label for="file-input">
-              <h4 style="cursor:pointer">{selectedFile.name}</h4>
+              <h4 style="cursor:pointer;margin-top:40px;">
+                {selectedFile.name || 'No file selected'}
+              </h4>
             </label>
           </div>
           <div class="inputs">

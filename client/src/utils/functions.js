@@ -71,11 +71,15 @@ export const validateFile = file => {
       const fileSize = file.size; // in bytes
       const fileType = file.type;
       let chosenFileName = file.name;
-      if (chosenFileName.length >= 20) {
+      // modifies file name
+      const arr = file.name.split(".");
+      const extension = arr[arr.length - 1];
+      chosenFileName = chosenFileName + "--original." + extension;
+      /*if (chosenFileName.length >= 20) {
         const arr = file.name.split(".");
         const extension = arr[arr.length - 1];
-        chosenFileName = chosenFileName.slice(0, 15) + "(...)." + extension;
-      }
+        chosenFileName = chosenFileName + "-original." + extension;
+      }*/
 
       selectedFile = {
         size: fileSize,

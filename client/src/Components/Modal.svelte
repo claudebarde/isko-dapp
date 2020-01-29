@@ -90,7 +90,7 @@
   }
 
   .body {
-    padding: 0.75rem;
+    padding: 1.5rem;
     overflow: auto;
   }
 </style>

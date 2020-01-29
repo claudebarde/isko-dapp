@@ -1,29 +1,74 @@
 <script>
   import moment from "moment";
   import langs from "langs";
+  import firebase from "firebase";
   import { fly } from "svelte/transition";
   import { push } from "svelte-spa-router";
   import Navbar from "../../../Navbar/Navbar.svelte";
   import web3Store from "../../../stores/web3-store";
   import userStore from "../../../stores/user-store";
   import { shortenHash, fromWeiToEther } from "../../../utils/functions";
+  import { sendTxAndWait } from "../../../utils/sendTxAndWait";
   import ActiveTranslationEntry from "./ActiveTranslationEntry.svelte";
   import TranslationEntry from "./TranslationEntry.svelte";
   import AlertTriangle from "../../Icons/AlertTriangle.svelte";
+  import ThumbsUp from "../../Icons/ThumbsUp.svelte";
+  import Modal from "../../Modal.svelte";
+  import Button from "../../Button.svelte";
 
   let langPairFrom = undefined;
   let langPairTo = undefined;
+  let requestPayoutModal = false;
+  let requestPayoutSteps = "confirm"; // confirm | await_tx | await_firebase | success | error
+  let requestPayoutErrorMsg = null;
+  let jobID = undefined;
 
-  const addNewLangPair = () => {
-    if (langPairFrom && langPairTo && langPairFrom !== langPairTo) {
-      userStore.updateAccountInfo({
-        ...$userStore.info,
-        languagePairs: [
-          ...$userStore.info.languagePairs,
-          { from: langPairFrom, to: langPairTo }
-        ]
+  const requestPayout = async () => {
+    if (!jobID) {
+      requestPayoutSteps = "error";
+      requestPayoutErrorMsg = "Translation ID is undefined";
+      return;
+    }
+
+    requestPayoutModal = true;
+    const {
+      web3,
+      currentAddress,
+      contractAddress,
+      contractInstance
+    } = $web3Store;
+    try {
+      requestPayoutSteps = "await_tx";
+      const transaction = await sendTxAndWait({
+        web3,
+        contractInstance,
+        currentAddress,
+        contractAddress,
+        method: "payOutJob",
+        methodParameters: [jobID]
       });
-      console.log(langPairFrom, langPairTo);
+      if (transaction.result === "tx_included") {
+        const { txHash } = transaction;
+        requestPayoutSteps = "await_firebase";
+        // generates unique id token
+        const idToken = await firebase.auth().currentUser.getIdToken(true);
+        // updates status in firebase database
+        const requestPayout = firebase
+          .functions()
+          .httpsCallable("requestPayout");
+        const result = await requestPayout({ jobID, idToken, txHash });
+        if (result.data.error === false) {
+          requestPayoutSteps = "success";
+        } else {
+          console.log("error!");
+          throw new Error(result.data.msg || "");
+        }
+      } else {
+        throw new Error("Transaction failed");
+      }
+    } catch (error) {
+      requestPayoutSteps = "error";
+      requestPayoutErrorMsg = error;
     }
   };
 </script>
@@ -44,8 +89,95 @@
     color: #f56565;
     cursor: pointer;
   }
+
+  .buttons {
+    float: right;
+    margin-top: 60px;
+    display: flex;
+    flex-direction: row;
+  }
+
+  .buttons .button {
+    margin: 0px 10px;
+    padding: 0px;
+  }
+
+  .loader {
+    margin: 0 auto;
+    margin-top: 30px;
+  }
 </style>
 
+{#if requestPayoutModal}
+  <Modal
+    type={requestPayoutSteps === 'success' ? 'success' : requestPayoutSteps === 'error' ? 'error' : 'info'}
+    size="small"
+    on:close={() => (requestPayoutModal = false)}>
+    <div slot="title">
+      {#if requestPayoutSteps === 'confirm'}
+        Confirm Payout Request
+      {:else if requestPayoutSteps === 'await_tx'}
+        Status Update Pending
+      {:else if requestPayoutSteps === 'await_firebase'}
+        Status Update Pending
+      {:else if requestPayoutSteps === 'success'}
+        Request Successful!
+      {:else if requestPayoutSteps === 'error'}Error{/if}
+    </div>
+    <div slot="body">
+      {#if requestPayoutSteps === 'confirm'}
+        <div class="modal__body__content">
+          Are you sure you want to request a pay out for this translation?
+        </div>
+        <div class="buttons">
+          <div class="button">
+            <Button
+              type={requestPayoutSteps === 'confirm' ? 'warning' : 'disabled'}
+              text="Cancel"
+              on:click={() => (requestPayoutModal = false)} />
+          </div>
+          <div class="button">
+            <Button
+              type={requestPayoutSteps === 'confirm' ? 'success' : 'disabled'}
+              text="Confirm"
+              on:click={requestPayout} />
+          </div>
+        </div>
+      {:else if requestPayoutSteps === 'await_tx'}
+        <div class="modal__body__content">
+          <div>
+            Your pay out request is being registered on the blockchain, please
+            wait and do not close or refresh this page.
+          </div>
+          <div class="dot-typing loader" />
+        </div>
+      {:else if requestPayoutSteps === 'await_firebase'}
+        <div class="modal__body__content">
+          <div>
+            Your pay out request is now being saved in your account, this should
+            only take a few seconds, please wait.
+          </div>
+          <div class="dot-typing loader" />
+        </div>
+      {:else if requestPayoutSteps === 'success'}
+        <div class="modal__body__content">
+          <div>
+            Your request has been successfully saved and the funds are now
+            available on your account for withdrawal.
+          </div>
+          <div style="text-align:center">
+            <ThumbsUp />
+          </div>
+        </div>
+      {:else if requestPayoutSteps === 'error'}
+        <div class="modal__body__content">
+          An error has occured{requestPayoutErrorMsg ? `: ${requestPayoutErrorMsg}` : ''}.
+          Please try again
+        </div>
+      {/if}
+    </div>
+  </Modal>
+{/if}
 {#if $userStore.info}
   <div class="account-container" in:fly={{ y: -100, duration: 500 }}>
     <div class="account-card">
@@ -185,7 +317,11 @@
               translHash={transl}
               transl={$userStore.info.pendingTranslations[transl]}
               web3={$web3Store.web3}
-              type="pending" />
+              type="pending"
+              on:requestPayout={event => {
+                jobID = event.detail;
+                requestPayoutModal = true;
+              }} />
           {:else}
             <p>No pending translation</p>
           {/each}
