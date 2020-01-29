@@ -18,7 +18,8 @@
   let newEmail = $userStore.info.email;
   let updateButtonType = "success";
   let updateButtonText = "Save";
-  let openHistoryModal = false;
+  let openPaymentHistoryModal = false;
+  let openJobsHistoryModal = false;
 
   const updateName = () => {
     updateButtonType = "success";
@@ -111,6 +112,7 @@
   .date {
     font-size: 0.75rem;
     color: #a0aec0;
+    text-align: right;
   }
 
   .jobs-history {
@@ -160,9 +162,15 @@
     color: #a0aec0;
     cursor: pointer;
   }
+
+  .jobs-history-grid {
+    display: grid;
+    grid-template-columns: 10% 45% 15% 30%;
+    grid-template-rows: auto;
+  }
 </style>
 
-{#if openHistoryModal}
+{#if openPaymentHistoryModal}
   <Modal type="info" size="small" on:close={() => (openHistoryModal = false)}>
     <div slot="title">Payments History</div>
     <div slot="body">
@@ -171,6 +179,43 @@
           Ξ{fromWeiToEther($web3Store.web3, job.price)}
           <span class="date">{moment(job.timestamp).format('MM/DD/YYYY')}</span>
         </p>
+      {/each}
+    </div>
+  </Modal>
+{/if}
+{#if openJobsHistoryModal}
+  <Modal
+    type="info"
+    size="small"
+    on:close={() => (openJobsHistoryModal = false)}>
+    <div slot="title">Jobs History</div>
+    <div slot="body">
+      {#each $userStore.info.jobs as job}
+        <div class="jobs-history-grid">
+          {#if job.id.slice(0, 2) === 'fi'}
+            <div>
+              <img src="images/file.svg" alt="file type" class="icon" />
+            </div>
+          {:else}
+            <div>
+              <img src="images/file-text.svg" alt="text type" class="icon" />
+            </div>
+          {/if}
+          <div>
+            [
+            <strong
+              class={job.status ? `status-${job.status.toLowerCase()}` : ''}
+              title={`Status: ${job.status}`}
+              on:click={() => push(`/view/${job.id}`)}>
+              {shortenHash(job.id)}
+            </strong>
+            ]
+          </div>
+          <div>Ξ{fromWeiToEther($web3Store.web3, job.price)}</div>
+          <div class="date">
+            <span>{moment(job.timestamp).format('MM/DD/YYYY')}</span>
+          </div>
+        </div>
       {/each}
     </div>
   </Modal>
@@ -215,7 +260,7 @@
               {/each}
             {:else}
               <div
-                on:click={() => (openHistoryModal = true)}
+                on:click={() => (openPaymentHistoryModal = true)}
                 style="cursor:pointer">
                 Show history
                 <img src="images/list.svg" alt="history" class="icon" />
@@ -257,26 +302,38 @@
       <div class="account-card__content">
         <div>Jobs History</div>
         <div class="jobs-history">
-          {#each $userStore.info.jobs.slice(0, 6) as job}
-            <div>
-              {#if job.id.slice(0, 2) === 'fi'}
-                <img src="images/file.svg" alt="file type" class="icon" />
-              {:else}
-                <img src="images/file-text.svg" alt="text type" class="icon" />
-              {/if}
-              [
-              <strong
-                class={job.status ? `status-${job.status.toLowerCase()}` : ''}
-                title={`Status: ${job.status}`}
-                on:click={() => push(`/view/${job.id}`)}>
-                {shortenHash(job.id)}
-              </strong>
-              ] Ξ{fromWeiToEther($web3Store.web3, job.price)}
-              <span class="date">
-                {moment(job.timestamp).format('MM/DD/YYYY')}
-              </span>
+          {#if $userStore.info.jobs.length <= 5}
+            {#each $userStore.info.jobs as job}
+              <div>
+                {#if job.id.slice(0, 2) === 'fi'}
+                  <img src="images/file.svg" alt="file type" class="icon" />
+                {:else}
+                  <img
+                    src="images/file-text.svg"
+                    alt="text type"
+                    class="icon" />
+                {/if}
+                [
+                <strong
+                  class={job.status ? `status-${job.status.toLowerCase()}` : ''}
+                  title={`Status: ${job.status}`}
+                  on:click={() => push(`/view/${job.id}`)}>
+                  {shortenHash(job.id)}
+                </strong>
+                ] Ξ{fromWeiToEther($web3Store.web3, job.price)}
+                <span class="date">
+                  {moment(job.timestamp).format('MM/DD/YYYY')}
+                </span>
+              </div>
+            {:else}No job history{/each}
+          {:else}
+            <div
+              on:click={() => (openJobsHistoryModal = true)}
+              style="cursor:pointer">
+              Show history
+              <img src="images/list.svg" alt="history" class="icon" />
             </div>
-          {:else}No job history{/each}
+          {/if}
         </div>
       </div>
     </div>
