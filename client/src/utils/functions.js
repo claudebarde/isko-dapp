@@ -42,7 +42,7 @@ export const convertJobStatus = statusNumber => {
     case 4:
       return "paidout";
     case 5:
-      return "cancelled";
+      return "canceled";
     default:
       return null;
   }

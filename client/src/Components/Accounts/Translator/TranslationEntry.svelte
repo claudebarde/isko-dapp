@@ -52,6 +52,6 @@
             style="vertical-align:middle;margin-left:5px" />
         </span>
       {:else}Delivered {timeSinceDelivered}{/if}
-    {:else if type === 'paidout'}Ready for payment{/if}
+    {:else if type === 'paidout'}Added to your balance{/if}
   </div>
 </div>

@@ -20,7 +20,7 @@
   let claimingJob = false;
   let claimingJobError = false;
   let claimingJobErrorMsg =
-    "<p>There was an error when claiming this job.</p><p>This can happen if the job is not available anymore or has been cancelled.</p>";
+    "<p>There was an error when claiming this job.</p><p>This can happen if the job is not available anymore or has been canceled.</p>";
   let claimingJobSuccess = false;
   let jobEntryDelay = 0;
 
@@ -77,7 +77,7 @@
                   claimingJobErrorMsg = result.data.msg;
                 } else {
                   claimingJobErrorMsg =
-                    "<p>There was an error when claiming this job.</p><p>This can happen if the job is not available anymore or has been cancelled.</p>";
+                    "<p>There was an error when claiming this job.</p><p>This can happen if the job is not available anymore or has been canceled.</p>";
                 }
               } else {
                 claimingJobSuccess = true;

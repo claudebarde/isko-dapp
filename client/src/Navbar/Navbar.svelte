@@ -193,24 +193,29 @@
   const checkJobsStatus = async jobs => {
     // "approved" is an internal status that doesn't appear on the blockchain
     return await Promise.all(
-      jobs.reverse().map(
-        async job =>
-          new Promise(async (resolve, reject) => {
-            try {
-              const blckJob = await $web3Store.contractInstance.methods
-                .jobs(job.id)
-                .call();
-              // checks if the job was approved more than 5 days ago
-              if (parseInt(job.deliveredOn) * 1000 > Date.now()) {
-                resolve({ ...job, status: "approved" });
-              } else {
-                resolve({ ...job, status: convertJobStatus(blckJob.status) });
+      Object.keys(jobs)
+        .map(
+          async job =>
+            new Promise(async (resolve, reject) => {
+              try {
+                const blckJob = await $web3Store.contractInstance.methods
+                  .jobs(job)
+                  .call();
+                // checks if the job was approved more than 5 days ago
+                if (parseInt(jobs[job].deliveredOn) * 1000 > Date.now()) {
+                  resolve({ ...jobs[job], id: job, status: "approved" });
+                } else {
+                  resolve({
+                    ...jobs[job],
+                    id: job,
+                    status: convertJobStatus(blckJob.status)
+                  });
+                }
+              } catch (error) {
+                resolve({ ...jobs[job], id: job, status: null });
               }
-            } catch (error) {
-              resolve({ ...job, status: null });
-            }
-          })
-      )
+            })
+        )
     );
   };
 

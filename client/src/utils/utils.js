@@ -16,5 +16,5 @@ export const jobStatuses = [
   "review",
   "approved",
   "paidOut",
-  "cancelled"
+  "canceled"
 ];

@@ -11,6 +11,7 @@
   import { sendTxAndWait } from "../../../utils/sendTxAndWait";
   import ActiveTranslationEntry from "./ActiveTranslationEntry.svelte";
   import TranslationEntry from "./TranslationEntry.svelte";
+  import WithdrawalEntry from "./WithdrawalEntry.svelte";
   import AlertTriangle from "../../Icons/AlertTriangle.svelte";
   import ThumbsUp from "../../Icons/ThumbsUp.svelte";
   import Modal from "../../Modal.svelte";
@@ -22,6 +23,10 @@
   let requestPayoutSteps = "confirm"; // confirm | await_tx | await_firebase | success | error
   let requestPayoutErrorMsg = null;
   let jobID = undefined;
+  let withdrawBalanceModal = false;
+  let withdrawFullBalance = false;
+  let balanceWithdrawalSteps = "confirm"; // confirm | await_tx | await_firebase | success | error
+  let withdrawValue = 0;
 
   const requestPayout = async () => {
     if (!jobID) {
@@ -59,6 +64,11 @@
         const result = await requestPayout({ jobID, idToken, txHash });
         if (result.data.error === false) {
           requestPayoutSteps = "success";
+          // recalculates balance
+          const userBalance = await contractInstance.methods
+            .returnTranslator(currentAddress)
+            .call();
+          userStore.updateBalance(userBalance);
         } else {
           console.log("error!");
           throw new Error(result.data.msg || "");
@@ -71,6 +81,65 @@
       requestPayoutErrorMsg = error;
     }
   };
+
+  const calculateWithdrawal = perc => {
+    withdrawValue = (parseInt($userStore.balance) * perc) / 100;
+    if (perc === 100) {
+      withdrawFullBalance = true;
+    } else {
+      withdrawFullBalance = false;
+    }
+  };
+
+  const withdrawBalance = async () => {
+    const {
+      web3,
+      currentAddress,
+      contractAddress,
+      contractInstance
+    } = $web3Store;
+    balanceWithdrawalSteps = "await_tx";
+    try {
+      const transaction = await sendTxAndWait({
+        web3,
+        contractInstance,
+        currentAddress,
+        contractAddress,
+        method: "payTranslator",
+        methodParameters: [withdrawValue.toString(), withdrawFullBalance]
+      });
+      if (transaction.result === "tx_included") {
+        const { txHash } = transaction;
+        balanceWithdrawalSteps = "await_firebase";
+        // generates unique id token
+        const idToken = await firebase.auth().currentUser.getIdToken(true);
+        // updates status in firebase database
+        const withdrawBalance = firebase
+          .functions()
+          .httpsCallable("withdrawBalance");
+        const result = await withdrawBalance({
+          idToken,
+          txHash,
+          amount: withdrawValue
+        });
+        if (result.data.error === false) {
+          balanceWithdrawalSteps = "success";
+          const newBalance = await $web3Store.contractInstance.methods
+            .returnTranslator($web3Store.currentAddress.toLowerCase())
+            .call();
+          userStore.updateBalance(newBalance);
+          setTimeout(() => (withdrawBalanceModal = false), 3000);
+        } else {
+          throw new Error(result.data.msg || "");
+        }
+      } else {
+        throw new Error("Transaction failed");
+      }
+    } catch (error) {
+      balanceWithdrawalSteps = "error";
+      console.error(error);
+    }
+  };
 </script>
 
 <style>
@@ -80,7 +149,8 @@
     justify-content: space-between;
   }
 
-  .user-translations {
+  .user-translations,
+  .withdrawals-history {
     width: 100% !important;
   }
 
@@ -92,7 +162,7 @@
 
   .buttons {
     float: right;
-    margin-top: 60px;
+    margin-top: 50px;
     display: flex;
     flex-direction: row;
   }
@@ -106,8 +176,122 @@
     margin: 0 auto;
     margin-top: 30px;
   }
+
+  .input-balance {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    padding: 0px;
+    margin-top: 10px;
+  }
+
+  input {
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-size: 1rem;
+    width: 90%;
+  }
+  input:focus {
+    outline: 0;
+  }
+
+  .withdraw-input {
+    border-radius: 0.25rem;
+    border: solid 1px #cbd5e0;
+    font-size: 1rem;
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+  }
+
+  .balance-sugg {
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    margin: 0.5rem 3px;
+    border: solid 1px #cbd5e0;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.4s;
+  }
+  .balance-sugg:hover {
+    background-color: #cbd5e0;
+  }
+
+  .subtitle {
+    margin-bottom: 20px;
+  }
 </style>
 
+{#if withdrawBalanceModal}
+  <Modal
+    type={balanceWithdrawalSteps === 'error' ? 'error' : 'success'}
+    size="small"
+    on:close={() => (withdrawBalanceModal = false)}>
+    <div slot="title">Balance withdrawal</div>
+    <div slot="body">
+      {#if balanceWithdrawalSteps === 'confirm'}
+        <div>
+          Please indicate how much you would like to withdraw.
+          <br />
+          <br />
+          Keep in mind that withdrawing your full balance will also mark your
+          account as inactive.
+        </div>
+        <div class="input-balance">
+          <div class="withdraw-input">
+            <span>Ξ</span>
+            <input
+              type="text"
+              value={fromWeiToEther($web3Store.web3, withdrawValue)} />
+          </div>
+          <div class="balance-sugg" on:click={() => calculateWithdrawal(25)}>
+            25%
+          </div>
+          <div class="balance-sugg" on:click={() => calculateWithdrawal(50)}>
+            50%
+          </div>
+          <div class="balance-sugg" on:click={() => calculateWithdrawal(99)}>
+            99%
+          </div>
+          <div class="balance-sugg" on:click={() => calculateWithdrawal(100)}>
+            100%
+          </div>
+        </div>
+        <div class="buttons">
+          <div class="button">
+            <Button
+              type={balanceWithdrawalSteps === 'confirm' ? 'warning' : 'disabled'}
+              text="Cancel"
+              on:click={() => (withdrawBalanceModal = false)} />
+          </div>
+          <div class="button">
+            <Button
+              type={balanceWithdrawalSteps === 'confirm' ? 'success' : 'disabled'}
+              text="Confirm"
+              on:click={withdrawBalance} />
+          </div>
+        </div>
+      {:else if balanceWithdrawalSteps === 'await_tx'}
+        <div>
+          Waiting for your balance to be withdrawn to your translator account...
+        </div>
+        <div class="dot-typing loader" />
+      {:else if balanceWithdrawalSteps === 'await_firebase'}
+        <div>
+          Your withdrawal is now being saved in your translator's account.
+        </div>
+        <div class="dot-typing loader" />
+      {:else if balanceWithdrawalSteps === 'success'}
+        <div>Your balance has been successfully withdrawn!</div>
+        <div style="text-align:center">
+          <ThumbsUp />
+        </div>
+      {:else if balanceWithdrawalSteps === 'error'}
+        <div>An error has occurred, please try again.</div>
+      {/if}
+    </div>
+  </Modal>
+{/if}
 {#if requestPayoutModal}
   <Modal
     type={requestPayoutSteps === 'success' ? 'success' : requestPayoutSteps === 'error' ? 'error' : 'info'}
@@ -216,17 +400,27 @@
               src="images/download.svg"
               alt="withdraw"
               class="external-link"
-              title="Withdraw" />
+              title="Withdraw"
+              on:click={() => (withdrawBalanceModal = true)} />
           </div>
         {:else}
           <div>Loading...</div>
         {/if}
       </div>
       <div class="account-card__content">
-        <div>Withdrawal History</div>
-        {#if $userStore.info.withdrawals.length === 0}
-          No withdrawal
-        {:else}Open History{/if}
+        <div class="withdrawals-history">
+          <div class="subtitle">Withdrawals History</div>
+          {#if Object.keys($userStore.info.withdrawals).length === 0}
+            No withdrawal
+          {:else if Object.keys($userStore.info.withdrawals).length <= 5}
+            {#each Object.keys($userStore.info.withdrawals) as txHash}
+              <WithdrawalEntry
+                {...$userStore.info.withdrawals[txHash]}
+                {txHash}
+                web3={$web3Store.web3} />
+            {/each}
+          {:else}Open History{/if}
+        </div>
       </div>
     </div>
     <div class="account-card">
@@ -281,7 +475,7 @@
     <div class="account-card">
       <div class="account-card__content" style="width:100%">
         <div class="user-translations">
-          <p>Active Translations</p>
+          <div class="subtitle">Active Translations</div>
           {#each Object.keys($userStore.info.activeTranslations) as transl}
             <ActiveTranslationEntry
               translHash={transl}
@@ -294,7 +488,7 @@
       </div>
       <div class="account-card__content">
         <div class="user-translations">
-          <div>Translations to Review</div>
+          <div class="subtitle">Translations to Review</div>
           {#each $userStore.info.translationsToReview as transl}
             <div
               class="to-review"
@@ -311,7 +505,7 @@
     <div class="account-card">
       <div class="account-card__content">
         <div class="user-translations">
-          <div>Pending Translations</div>
+          <div class="subtitle">Pending Translations</div>
           {#each Object.keys($userStore.info.pendingTranslations) as transl}
             <TranslationEntry
               translHash={transl}
@@ -329,7 +523,7 @@
       </div>
       <div class="account-card__content">
         <div class="user-translations">
-          <div>Paid Out Translations</div>
+          <div class="subtitle">Paid Out Translations</div>
           {#each Object.keys($userStore.info.paidOutTranslations) as transl}
             <TranslationEntry
               translHash={transl}

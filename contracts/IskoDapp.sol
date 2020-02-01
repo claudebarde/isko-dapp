@@ -9,7 +9,7 @@ import {
 contract IskoDapp is Initializable {
     address payable private owner;
     uint256 public fee;
-    enum JobStatus {Available, Accepted, Delivered, Review, PaidOut, Cancelled}
+    enum JobStatus {Available, Accepted, Delivered, Review, PaidOut, Canceled}
     struct Job {
         address payable customer;
         uint256 price;
@@ -21,6 +21,13 @@ contract IskoDapp is Initializable {
     mapping(string => Job) public jobs;
     mapping(address => uint256) public translators;
     uint256 generalRevenue;
+    /* Proofreaders */
+    struct Proofreader {
+        bool isProofreader;
+        string[] proofreadJobs;
+    }
+    mapping(address => Proofreader) proofreaders; // saves proofreaders' addresses and jobs they proofread
+    string[] jobsToProofread;
 
     modifier onlyOwner {
         require(
@@ -36,6 +43,14 @@ contract IskoDapp is Initializable {
             "Only active translators can work on translations!"
         );
         require(jobs[_id].timestamp > 0, "This job doesn't exist!");
+        _;
+    }
+
+    modifier isProofreader(address _addr) {
+        require(
+            proofreaders[_addr].isProofreader == true,
+            "Only proofreaders can access this job."
+        );
         _;
     }
 
@@ -78,7 +93,11 @@ contract IskoDapp is Initializable {
         // customer must provide a price that includes the fee
         require(msg.value > 0, "The provided amount is too low.");
         // customer cannot override an existing job
-        require(jobs[_id].timestamp == 0, "This job already exists.");
+        // JobStatus enum is set by default to "available"
+        require(
+            jobs[_id].timestamp == 0 && jobs[_id].status == JobStatus.Available,
+            "This job already exists."
+        );
         // we calculate fee on the job
         uint256 localFee = (msg.value * fee) / 100;
         // we create a new job
@@ -201,35 +220,47 @@ contract IskoDapp is Initializable {
     }
 
     // cancels and refunds job
-    function refundJob(string memory _id) public onlyOwner {
+    function refundJob(string memory _id) public {
         // prevents customer to cancel the job after translator worked on it
         require(
             jobs[_id].status == JobStatus.Available,
             "You cannot cancel this job anymore!"
         );
+        // only creating customer can cancel a translation
+        require(jobs[_id].customer == msg.sender, "You are not allowed to cancel this translation!");
         Job storage job = jobs[_id];
-        // refunds price
-        job.customer.transfer(job.price);
+        uint256 price = job.price;
         // removes job
         job.customer = address(0x0);
         job.price = 0;
         job.timestamp = 0;
-        job.status = JobStatus.Available;
         job.translator = address(0x0);
         job.deliveredOn = 0;
+        job.status = JobStatus.Canceled;
+        // refunds price
+        job.customer.transfer(price);
         // emit event about job cancelation
         emit JobCanceledByCustomer(_id);
     }
 
     // pays freelancer on request
-    function payTranslator(uint amount) public {
+    function payTranslator(uint256 amount, bool withdrawAll) public {
         // translator must have enough balance to request a withdrawal
-        require(translators[msg.sender] >= amount, "You don't have enough balance!");
+        require(
+            translators[msg.sender] >= amount,
+            "You don't have enough balance!"
+        );
         // requested amount must be above zero
         require(amount > 0, "The requested amount cannot be 0.");
-        uint256 balance = translators[msg.sender];
-        translators[msg.sender] = balance - amount;
-        msg.sender.transfer(amount);
+        if (withdrawAll) {
+            uint256 balance = translators[msg.sender];
+            translators[msg.sender] = 0;
+            msg.sender.transfer(balance);
+        } else {
+            uint256 balance = translators[msg.sender];
+            translators[msg.sender] = balance - amount;
+            msg.sender.transfer(amount);
+        }
     }
 
     // manually updates job status in case of error
@@ -248,7 +279,7 @@ contract IskoDapp is Initializable {
         } else if (status == 4) {
             jobs[_id].status = JobStatus.PaidOut;
         } else if (status == 5) {
-            jobs[_id].status = JobStatus.Cancelled;
+            jobs[_id].status = JobStatus.Canceled;
         }
     }
 

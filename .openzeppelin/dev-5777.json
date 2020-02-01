@@ -1,11 +1,11 @@
 {
   "contracts": {
     "IskoDapp": {
-      "address": "0x1910e9237415CcADD343B0c7df3dE6106B10343c",
-      "constructorCode": "608060405234801561001057600080fd5b50613bc9806100206000396000f3fe",
-      "bodyBytecodeHash": "d42cc9bf95efb29771c9e890c263fb394e4666ca344b8818d6d3f5d3c1fe764d",
-      "localBytecodeHash": "a99d507553988a19c8eec2710e0cb91c9278e64fe5e5f02cf286484051305a37",
-      "deployedBytecodeHash": "a99d507553988a19c8eec2710e0cb91c9278e64fe5e5f02cf286484051305a37",
+      "address": "0x9EF78c959f164f91BB574F4e77c8FaDfCc6273F3",
+      "constructorCode": "608060405234801561001057600080fd5b50613e8a806100206000396000f3fe",
+      "bodyBytecodeHash": "d59728168c5a53100d9dd18ddcfa4b9a22a474674fa7305dc36931e8afd5e9bb",
+      "localBytecodeHash": "e72305f7f1bdee93b7d57549fd01c91560361d675188cdd18ec5d23228d42e33",
+      "deployedBytecodeHash": "e72305f7f1bdee93b7d57549fd01c91560361d675188cdd18ec5d23228d42e33",
       "types": {
         "t_bool": {
           "id": "t_bool",
@@ -38,37 +38,37 @@
               "label": "customer",
               "astId": 269,
               "type": "t_address_payable",
-              "src": "427:24:2"
+              "src": "426:24:2"
             },
             {
               "label": "price",
               "astId": 271,
               "type": "t_uint256",
-              "src": "461:13:2"
+              "src": "460:13:2"
             },
             {
               "label": "timestamp",
               "astId": 273,
               "type": "t_uint256",
-              "src": "484:17:2"
+              "src": "483:17:2"
             },
             {
               "label": "status",
               "astId": 275,
               "type": "t_enum<IskoDapp.JobStatus>",
-              "src": "511:16:2"
+              "src": "510:16:2"
             },
             {
               "label": "translator",
               "astId": 277,
               "type": "t_address_payable",
-              "src": "537:26:2"
+              "src": "536:26:2"
             },
             {
               "label": "deliveredOn",
               "astId": 279,
               "type": "t_uint256",
-              "src": "573:19:2"
+              "src": "572:19:2"
             }
           ]
         },
@@ -82,7 +82,7 @@
             "Delivered",
             "Review",
             "PaidOut",
-            "Cancelled"
+            "Canceled"
           ]
         },
         "t_mapping<t_struct<IskoDapp.Job>>": {
@@ -95,6 +95,43 @@
           "id": "t_mapping<t_uint256>",
           "valueType": "t_uint256",
           "label": "mapping(key => uint256)",
+          "kind": "mapping"
+        },
+        "t_struct<IskoDapp.Proofreader>": {
+          "id": "t_struct<IskoDapp.Proofreader>",
+          "kind": "struct",
+          "label": "IskoDapp.Proofreader",
+          "members": [
+            {
+              "label": "isProofreader",
+              "astId": 292,
+              "type": "t_bool",
+              "src": "775:18:2"
+            },
+            {
+              "label": "proofreadJobs",
+              "astId": 295,
+              "type": "t_array:dyn<t_string>",
+              "src": "803:22:2"
+            }
+          ]
+        },
+        "t_string": {
+          "id": "t_string",
+          "kind": "elementary",
+          "label": "string"
+        },
+        "t_array:dyn<t_string>": {
+          "id": "t_array:dyn<t_string>",
+          "valueType": "t_string",
+          "length": "dyn",
+          "kind": "array",
+          "label": "string[]"
+        },
+        "t_mapping<t_struct<IskoDapp.Proofreader>>": {
+          "id": "t_mapping<t_struct<IskoDapp.Proofreader>>",
+          "valueType": "t_struct<IskoDapp.Proofreader>",
+          "label": "mapping(key => IskoDapp.Proofreader)",
           "kind": "mapping"
         }
       },
@@ -145,7 +182,7 @@
           "label": "jobs",
           "astId": 284,
           "type": "t_mapping<t_struct<IskoDapp.Job>>",
-          "src": "604:34:2"
+          "src": "603:34:2"
         },
         {
           "contract": "IskoDapp",
@@ -153,7 +190,7 @@
           "label": "translators",
           "astId": 288,
           "type": "t_mapping<t_uint256>",
-          "src": "644:46:2"
+          "src": "643:46:2"
         },
         {
           "contract": "IskoDapp",
@@ -161,7 +198,23 @@
           "label": "generalRevenue",
           "astId": 290,
           "type": "t_uint256",
-          "src": "696:22:2"
+          "src": "695:22:2"
+        },
+        {
+          "contract": "IskoDapp",
+          "path": "contracts/IskoDapp.sol",
+          "label": "proofreaders",
+          "astId": 300,
+          "type": "t_mapping<t_struct<IskoDapp.Proofreader>>",
+          "src": "837:44:2"
+        },
+        {
+          "contract": "IskoDapp",
+          "path": "contracts/IskoDapp.sol",
+          "label": "jobsToProofread",
+          "astId": 303,
+          "type": "t_array:dyn<t_string>",
+          "src": "944:24:2"
         }
       ],
       "warnings": {
@@ -177,7 +230,15 @@
             "label": "jobs",
             "astId": 284,
             "type": "t_mapping<t_struct<IskoDapp.Job>>",
-            "src": "604:34:2"
+            "src": "603:34:2"
+          },
+          {
+            "contract": "IskoDapp",
+            "path": "contracts/IskoDapp.sol",
+            "label": "proofreaders",
+            "astId": 300,
+            "type": "t_mapping<t_struct<IskoDapp.Proofreader>>",
+            "src": "837:44:2"
           }
         ],
         "storageDiff": []
@@ -190,7 +251,7 @@
       {
         "address": "0x0805a7BF67708B7171DF67aBC000ea43fAB8F5bc",
         "version": "1.0.0",
-        "implementation": "0x1910e9237415CcADD343B0c7df3dE6106B10343c",
+        "implementation": "0x9EF78c959f164f91BB574F4e77c8FaDfCc6273F3",
         "admin": "0x7bA5BC555E1c59B9120976836cF6c1576107cE7C",
         "kind": "Upgradeable"
       }

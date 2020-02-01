@@ -7,8 +7,10 @@
   import userStore from "../../../stores/user-store.js";
   import web3Store from "../../../stores/web3-store.js";
   import { shortenHash, fromWeiToEther } from "../../../utils/functions";
+  import { sendTxAndWait } from "../../../utils/sendTxAndWait";
   import Modal from "../../Modal.svelte";
   import Button from "../../Button.svelte";
+  import ThumbsUp from "../../Icons/ThumbsUp.svelte";
 
   let isUpdateModalOpen = false;
   let currentBalance = "...";
@@ -20,6 +22,10 @@
   let updateButtonText = "Save";
   let openPaymentHistoryModal = false;
   let openJobsHistoryModal = false;
+  let cancelJobModal = false;
+  let jobToCancel = undefined;
+  let cancelJobSteps = "confirm"; // confirm | await_tx | await_firebase | success | error
+  let cancelJobError = null;
 
   const updateName = () => {
     updateButtonType = "success";
@@ -71,6 +77,54 @@
       eventsStore.toggleWarningModal(
         "An error has occurred, please try again later."
       );
+    }
+  };
+
+  const cancelJob = async () => {
+    if (jobToCancel) {
+      const {
+        web3,
+        currentAddress,
+        contractAddress,
+        contractInstance
+      } = $web3Store;
+      cancelJobSteps = "await_tx";
+      try {
+        const transaction = await sendTxAndWait({
+          web3,
+          contractInstance,
+          currentAddress,
+          contractAddress,
+          method: "refundJob",
+          methodParameters: [jobToCancel]
+        });
+        if (transaction.result === "tx_included") {
+          const { txHash } = transaction;
+          cancelJobSteps = "await_firebase";
+          // generates unique id token
+          const idToken = await firebase.auth().currentUser.getIdToken(true);
+          // updates status in firebase database
+          const refundJob = firebase.functions().httpsCallable("refundJob");
+          const result = await refundJob({
+            idToken,
+            txHash,
+            jobID: jobToCancel
+          });
+          if (result.data.error === false) {
+            cancelJobSteps = "success";
+            setTimeout(() => (cancelJobModal = false), 3000);
+          } else {
+            throw new Error(result.data.msg || "");
+          }
+        } else {
+          throw new Error("Transaction failed!");
+        }
+      } catch (error) {
+        cancelJobSteps = "error";
+        cancelJobError = error;
+      }
+    } else {
+      return;
     }
   };
 
@@ -132,6 +186,23 @@
     padding: 5px;
   }
 
+  .buttons {
+    float: right;
+    margin-top: 50px;
+    display: flex;
+    flex-direction: row;
+  }
+
+  .buttons .button {
+    margin: 0px 10px;
+    padding: 0px;
+  }
+
+  .loader {
+    margin: 0 auto;
+    margin-top: 30px;
+  }
+
   /*Colors for job status*/
   .status-available {
     color: #f56565;
@@ -158,25 +229,104 @@
     color: #4299e1;
     cursor: pointer;
   }
-  .status-cancelled {
+  .status-canceled {
     color: #a0aec0;
     cursor: pointer;
   }
 
   .jobs-history-grid {
     display: grid;
-    grid-template-columns: 10% 45% 15% 30%;
+    grid-template-columns: 5% 45% 20% 20% 10%;
     grid-template-rows: auto;
+    justify-items: center;
+    align-items: center;
+    padding: 4px 0px;
   }
 </style>
 
+{#if cancelJobModal}
+  <Modal
+    type="error"
+    size="small"
+    on:close={() => {
+      cancelJobModal = false;
+      jobToCancel = undefined;
+    }}>
+    <div slot="title">
+      {#if cancelJobSteps === 'confirm'}
+        Cancel Job?
+      {:else if cancelJobSteps === 'await_tx'}
+        Status Update Pending
+      {:else if cancelJobSteps === 'await_firebase'}
+        Status Update Pending
+      {:else if cancelJobSteps === 'success'}
+        Successfully Canceled!
+      {:else if cancelJobSteps === 'error'}Error{/if}
+    </div>
+    <div slot="body">
+      {#if cancelJobSteps === 'confirm'}
+        <div>
+          Are you sure you want to cancel this translation: {jobToCancel}?
+        </div>
+        <br />
+        <div>
+          You will be refunded with the total price minus the translation
+          posting fee.
+        </div>
+        <div class="buttons">
+          <div class="button">
+            <Button
+              type="info"
+              text="Abort"
+              on:click={() => {
+                cancelJobModal = false;
+                jobToCancel = undefined;
+              }} />
+          </div>
+          <div class="button">
+            <Button type="error" text="Confirm" on:click={cancelJob} />
+          </div>
+        </div>
+      {:else if cancelJobSteps === 'await_tx'}
+        <div>
+          <div>
+            Your cancellation request is processed on the blockchain, please
+            wait and do not close or refresh this page.
+          </div>
+          <div class="dot-typing loader" />
+        </div>
+      {:else if cancelJobSteps === 'await_firebase'}
+        <div>
+          <div>
+            Your cancellation request is being saved to your account, please
+            wait.
+          </div>
+          <div class="dot-typing loader" />
+        </div>
+      {:else if cancelJobSteps === 'success'}
+        <div>Successfully Canceled!</div>
+        <div style="text-align:center">
+          <ThumbsUp />
+        </div>
+      {:else if cancelJobSteps === 'error'}
+        <div>An error has occured: {cancelJobError}</div>
+      {/if}
+    </div>
+  </Modal>
+{/if}
 {#if openPaymentHistoryModal}
-  <Modal type="info" size="small" on:close={() => (openHistoryModal = false)}>
+  <Modal
+    type="info"
+    size="small"
+    on:close={() => (openPaymentHistoryModal = false)}>
     <div slot="title">Payments History</div>
     <div slot="body">
       {#each $userStore.info.jobs.slice(0, 6) as job}
         <p class="payment-history-line">
-          Ξ{fromWeiToEther($web3Store.web3, job.price)}
+          <span
+            style={job.status === 'canceled' ? 'text-decoration:line-through' : ''}>
+            Ξ{fromWeiToEther($web3Store.web3, job.price)}
+          </span>
           <span class="date">{moment(job.timestamp).format('MM/DD/YYYY')}</span>
         </p>
       {/each}
@@ -215,6 +365,20 @@
           <div class="date">
             <span>{moment(job.timestamp).format('MM/DD/YYYY')}</span>
           </div>
+          <div class="job-history__action-button">
+            {#if job.status === 'available'}
+              <img
+                src="images/x-circle.svg"
+                alt="cancel"
+                class="icon"
+                style="cursor:pointer"
+                on:click={() => {
+                  openJobsHistoryModal = false;
+                  cancelJobModal = true;
+                  jobToCancel = job.id;
+                }} />
+            {/if}
+          </div>
         </div>
       {/each}
     </div>
@@ -250,9 +414,12 @@
         <div>
           {#if $userStore.info}
             {#if $userStore.info.jobs.length <= 5}
-              {#each $userStore.info.jobs.slice(0, 6) as job}
+              {#each $userStore.info.jobs as job}
                 <div>
-                  Ξ{fromWeiToEther($web3Store.web3, job.price)}
+                  <span
+                    style={job.status === 'canceled' ? 'text-decoration:line-through' : ''}>
+                    Ξ{fromWeiToEther($web3Store.web3, job.price)}
+                  </span>
                   <span class="date">
                     {moment(job.timestamp).format('MM/DD/YYYY')}
                   </span>
@@ -324,6 +491,18 @@
                 <span class="date">
                   {moment(job.timestamp).format('MM/DD/YYYY')}
                 </span>
+                {#if job.status === 'available'}
+                  <img
+                    src="images/x-circle.svg"
+                    alt="text type"
+                    class="icon"
+                    style="cursor:pointer"
+                    on:click={() => {
+                      openJobsHistoryModal = false;
+                      cancelJobModal = true;
+                      jobToCancel = job.id;
+                    }} />
+                {/if}
               </div>
             {:else}No job history{/each}
           {:else}

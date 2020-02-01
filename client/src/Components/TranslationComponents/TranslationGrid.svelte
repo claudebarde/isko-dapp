@@ -35,6 +35,8 @@
     translationGrid.map(i => i.status).reduce((a, b) => a && b)
   ) {
     buttonType = "success";
+  } else {
+    buttonType = "disabled";
   }
 
   const submitJob = () => {

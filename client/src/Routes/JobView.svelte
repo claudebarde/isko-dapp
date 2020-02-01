@@ -517,6 +517,8 @@
                 <div class="translation-output__translation">
                   {#if translationDetails.status === 'available' || translationDetails.status === 'accepted'}
                     No translation to show
+                  {:else if translationDetails.status === 'canceled'}
+                    Translation was canceled
                   {:else}
                     {buildFinalTranslation(translationDetails.deliveredTranslation, translationDetails.content)}
                   {/if}
@@ -599,9 +601,9 @@
                 translator.
               </div>
             </div>
-          {:else if translationDetails.status === 'cancelled'}
+          {:else if translationDetails.status === 'canceled'}
             <div class="review-instructions">
-              <div>You cancelled this translation.</div>
+              <div>You canceled this translation.</div>
             </div>
           {/if}
         </div>
